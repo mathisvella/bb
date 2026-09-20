@@ -250,6 +250,8 @@ interface PromptSubmitButtonProps {
   onPointerDown: (event: ReactPointerEvent<HTMLButtonElement>) => void;
   onTouchSubmit: () => void;
   title: string;
+  type?: "submit" | "button";
+  variant?: "default" | "secondary";
 }
 
 function PromptSubmitButton({
@@ -264,6 +266,8 @@ function PromptSubmitButton({
   onPointerDown,
   onTouchSubmit,
   title,
+  type = "submit",
+  variant = "default",
 }: PromptSubmitButtonProps) {
   const touchRef = useRef<{ pointerId: number; x: number; y: number } | null>(
     null,
@@ -271,10 +275,10 @@ function PromptSubmitButton({
   const suppressTouchClickRef = useRef(false);
   const button = (
     <Button
-      data-promptbox-submit-action=""
-      type="submit"
+      data-promptbox-submit-action={type === "submit" ? "" : undefined}
+      type={type}
       size={isCompact ? "icon" : "sm"}
-      variant="default"
+      variant={variant}
       aria-label={title}
       aria-busy={isBusy}
       disabled={!canSubmit}
@@ -338,7 +342,9 @@ function PromptSubmitButton({
         <>
           <Icon name={icon ?? "CornerDownLeft"} className="size-4" />
           {label !== undefined && !isCompact ? (
-            <span data-promptbox-submit-label="">{label}</span>
+            <span data-promptbox-submit-label={type === "submit" ? "" : undefined}>
+              {label}
+            </span>
           ) : null}
         </>
       )}
@@ -2657,6 +2663,7 @@ export function PromptBoxInternal({
   const canPrimarySubmit = canSubmitAction(primarySubmitAction);
   const canSubmit = hasSubmittableInput && canPrimarySubmit;
   const canModifierSubmit = canSubmitAction(modifierSubmitAction);
+  const showTouchQueueAction = isPointerCoarse && swapSubmitActions;
   const showStop = Boolean(
     isRunning && onStop && !canSubmit && !isAttaching && !showVoiceActionGroup,
   );
@@ -2793,10 +2800,16 @@ export function PromptBoxInternal({
     submitPrompt();
   }, [pendingCommandSubmit, submitPrompt]);
 
-  const submitModifierPrompt = useCallback(() => {
-    if (!canModifierSubmit || !onModifierSubmit) return;
-    onModifierSubmit();
-  }, [canModifierSubmit, onModifierSubmit]);
+  const submitModifierPrompt = useCallback(
+    (pointerSubmit = false) => {
+      if (!canModifierSubmit || !onModifierSubmit) return;
+      onModifierSubmit();
+      if (pointerSubmit && blurOnPointerSubmit) {
+        blurPromptEditor(editorRef.current);
+      }
+    },
+    [blurOnPointerSubmit, canModifierSubmit, onModifierSubmit],
+  );
 
   const applyHistoryDraft = useCallback(
     (draft: PromptDraftState) => {
@@ -3198,6 +3211,7 @@ export function PromptBoxInternal({
               "relative",
               showCompactLayout && "min-w-0 flex-1",
               showCompactVoiceAction && "pr-9",
+              showCompactLayout && showTouchQueueAction && "mr-24",
             )}
           >
             {!showCompactLayout ? (
@@ -3401,6 +3415,23 @@ export function PromptBoxInternal({
                         </Button>
                       ) : null}
                     </>
+                  ) : null}
+                  {showTouchQueueAction ? (
+                    <PromptSubmitButton
+                      type="button"
+                      variant="secondary"
+                      canSubmit={canModifierSubmit}
+                      icon="ListView"
+                      label="Queue"
+                      title="Queue follow-up"
+                      className={COARSE_POINTER_PROMPT_ACTION_BUTTON_CLASS}
+                      disabledReason={submitDisabledReason}
+                      isBusy={isSubmitting || isAttaching}
+                      isCompact={false}
+                      onPointerDown={handleSubmitPointerDown}
+                      onClick={(event) => submitModifierPrompt(event.detail > 0)}
+                      onTouchSubmit={() => submitModifierPrompt(true)}
+                    />
                   ) : null}
                   <div
                     data-promptbox-submit-group=""
