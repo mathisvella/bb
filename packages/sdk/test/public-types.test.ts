@@ -320,6 +320,7 @@ type ExpectedPluginMarketplacesKey = "add" | "list" | "refresh" | "remove";
 
 type ExpectedProjectsKey =
   | "machineEnvironment"
+  | "callMachineEnvironmentBroker"
   | "replaceMachineEnvironment"
   | "setMachineEnvironmentVariable"
   | "deleteMachineEnvironmentVariable"

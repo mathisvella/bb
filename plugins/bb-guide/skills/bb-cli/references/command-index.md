@@ -73,6 +73,7 @@ This index lists every command path that the core CLI registers, including alias
 - `bb machine providers`
 - `bb machine enroll`
 - `bb machine env`
+- `bb machine env call`
 - `bb machine env list`
 - `bb machine env set`
 - `bb machine env unset`
@@ -338,6 +339,6 @@ server.
 Machine lists and name/ID selectors include machines still being created. Machine creation is durable: `create --no-wait` returns the creating host ID. `machine show <host-id>` reads progress and `machine remove <host-id>` cancels it. SIGINT only stops following.
 
 Machine environment: `bb machine env list`, `bb machine env set NAME`
-(value from stdin), and `bb machine env unset NAME`; all accept `--project <id>` for project overrides and `--json`. Omit `--project` for global settings.
+(value from stdin), and `bb machine env unset NAME`; all accept `--project <id>` for project overrides and `--json`. Omit `--project` for global settings. Brokered values use `bb machine env call NAME URL`; BB injects the credential server-side after validating its provider policy.
 
 Standalone `bb machine create` machines remain until explicitly removed.

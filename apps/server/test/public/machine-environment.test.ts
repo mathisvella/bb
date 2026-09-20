@@ -51,6 +51,9 @@ describe("machine environment settings", () => {
           secret: true,
           value: null,
           note: null,
+          brokerPolicy: null,
+          brokerAllowWrite: false,
+          brokerHost: null,
         });
         expect(
           JSON.stringify(await sdk.system.machineEnvironment()),
@@ -192,7 +195,15 @@ it("isolates projects on a shared machine and restores global values after remov
       projectId: "project-a",
     });
     expect(view.variables).toEqual([
-      { name: "REGION", value: null, secret: true, note: null },
+      {
+        name: "REGION",
+        value: null,
+        secret: true,
+        note: null,
+        brokerPolicy: null,
+        brokerAllowWrite: false,
+        brokerHost: null,
+      },
     ]);
     expect(view.inheritedVariables).toEqual(view.variables);
     expect(JSON.stringify(view)).not.toContain("region-a");

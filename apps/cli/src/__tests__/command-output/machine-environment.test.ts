@@ -45,6 +45,9 @@ describe("machine env commands", () => {
           name: "GH_TOKEN",
           value: "cli-secret",
           note: null,
+          brokerPolicy: null,
+          brokerAllowWrite: false,
+          brokerHost: null,
         });
         expect(requests[0].method).toBe("POST");
         await runCommand(
@@ -126,6 +129,9 @@ describe("machine env commands", () => {
             name: "VALUE",
             value: expected,
             note: null,
+            brokerPolicy: null,
+            brokerAllowWrite: false,
+            brokerHost: null,
           });
           expect(requests[0].method).toBe("POST");
         }
@@ -134,4 +140,43 @@ describe("machine env commands", () => {
       }
     },
   );
+
+  it("calls the project broker with the thread capability", async () => {
+    const requests: Request[] = [];
+    vi.stubEnv("BB_PROJECT_ID", "project-a");
+    vi.stubEnv("BB_SECRET_BROKER_TOKEN", "x".repeat(32));
+    vi.mocked(fetch).mockImplementation(async (input, init) => {
+      requests.push(new Request(input, init));
+      return Response.json({
+        status: 200,
+        headers: { "content-type": "application/json" },
+        body: '{"ok":true}',
+        bodyEncoding: "utf8",
+      });
+    });
+    await runCommand(
+      [
+        "machine",
+        "env",
+        "call",
+        "STRIPE_SECRET_KEY",
+        "https://api.stripe.com/v1/customers",
+        "--header",
+        "Stripe-Version: 2025-01-27",
+        "--json",
+      ],
+      register,
+    );
+    expect(requests[0]?.url).toBe(
+      "http://server/api/v1/projects/project-a/machine-environment/broker",
+    );
+    expect(await requests[0]?.json()).toEqual({
+      capabilityToken: "x".repeat(32),
+      name: "STRIPE_SECRET_KEY",
+      method: "GET",
+      url: "https://api.stripe.com/v1/customers",
+      headers: { "Stripe-Version": "2025-01-27" },
+      body: null,
+    });
+  });
 });

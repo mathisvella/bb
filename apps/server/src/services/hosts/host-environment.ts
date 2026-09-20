@@ -1,5 +1,6 @@
 import { getAppSettings, getHost } from "@bb/db";
 import { resolveUserMachineEnvironment } from "../machines/environment-settings.js";
+import { readMachineEnvironment } from "../machines/environment-storage.js";
 import type { AppDeps } from "../../types.js";
 import type { HostDaemonContributedEnvEntry } from "@bb/host-daemon-contract";
 import {
@@ -35,7 +36,18 @@ export async function resolveHostEnvironment(
           context.projectId,
         ),
   ]);
-  const user = mergeHostAndProviderEnvironment(global, project);
+  const projectNames =
+    context.projectId === null
+      ? new Set<string>()
+      : new Set(
+          readMachineEnvironment(deps.db, context.projectId).map(
+            (row) => row.name,
+          ),
+        );
+  const user = mergeHostAndProviderEnvironment(
+    global.filter((entry) => !projectNames.has(entry.name)),
+    project,
+  );
   if (!builtIn.length && user.some((entry) => entry.name === "GH_TOKEN"))
     builtIn.push(...githubGitConfiguration());
   return mergeHostAndProviderEnvironment(builtIn, user);

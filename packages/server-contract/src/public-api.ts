@@ -1,8 +1,11 @@
 import {
   machineEnvironmentSetSchema,
   machineEnvironmentDeleteSchema,
+  machineEnvironmentBrokerCallSchema,
   type MachineEnvironmentSet,
   type MachineEnvironmentDelete,
+  type MachineEnvironmentBrokerCall,
+  type MachineEnvironmentBrokerResponse,
   type ProjectMachineEnvironmentList,
   type MachineEnvironmentList,
 } from "./api/machine-environment.js";
@@ -428,6 +431,14 @@ export const publicApiRoutes = {
         machineEnvironmentDeleteSchema,
       ),
       response: jsonResponse<ProjectMachineEnvironmentList>(),
+    }),
+    callMachineEnvironmentBroker: defineRoute({
+      path: "/projects/:id/machine-environment/broker",
+      method: "post",
+      request: jsonRequest<PathProjectId, MachineEnvironmentBrokerCall>(
+        machineEnvironmentBrokerCallSchema,
+      ),
+      response: jsonResponse<MachineEnvironmentBrokerResponse>(),
     }),
 
     list: defineRoute({

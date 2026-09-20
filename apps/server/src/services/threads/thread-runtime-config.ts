@@ -38,6 +38,10 @@ import {
   readWorkspaceAgentInstructions,
 } from "./workspace-agent-instructions.js";
 import { resolveDeprecatedWorkspaceProvisionType } from "../environments/environment-response.js";
+import {
+  issueSecretBrokerCapability,
+  listBrokeredMachineEnvironmentNames,
+} from "../machines/secret-broker.js";
 
 const UPDATE_ENVIRONMENT_DIRECTORY_INSTRUCTIONS =
   "If the user asks you to move this thread to another checkout, worktree, or directory, make sure the target directory exists, then call `update_environment_directory` with its absolute path. After it succeeds, stop work in the current turn; future turns will run in the updated environment.";
@@ -194,7 +198,7 @@ export async function resolveThreadRuntimeCommandConfig(
     },
     skillIdsByPlugin,
   });
-  const contributedEnv = mergeHostAndProviderEnvironment(
+  const hostAndProviderEnvironment = mergeHostAndProviderEnvironment(
     await resolveHostEnvironment(deps, {
       hostId: host.id,
       projectId: project.id,
@@ -208,6 +212,34 @@ export async function resolveThreadRuntimeCommandConfig(
       },
     }),
   );
+  const brokeredSecretNames = listBrokeredMachineEnvironmentNames(
+    deps.db,
+    project.id,
+  );
+  const brokerSafeEnvironment = hostAndProviderEnvironment.filter(
+    (entry) => !brokeredSecretNames.includes(entry.name),
+  );
+  const contributedEnv =
+    brokeredSecretNames.length === 0
+      ? brokerSafeEnvironment
+      : mergeHostAndProviderEnvironment(brokerSafeEnvironment, [
+          {
+            name: "BB_SECRET_BROKER_TOKEN",
+            value: issueSecretBrokerCapability({
+              names: brokeredSecretNames,
+              projectId: project.id,
+              threadId: args.thread.id,
+            }),
+            reason: "Ephemeral access to this thread's brokered secrets",
+            source: { core: "project-environment" },
+          },
+          {
+            name: "BB_BROKERED_SECRET_NAMES",
+            value: JSON.stringify(brokeredSecretNames),
+            reason: "Names of secrets available through the BB secret broker",
+            source: { core: "project-environment" },
+          },
+        ]);
   const injectedSkillSources = resolveSkillCatalog(deps, {
     projectSkillSources,
     sharedSkillSources: sharedSkills.runtimeSources,
@@ -224,6 +256,11 @@ export async function resolveThreadRuntimeCommandConfig(
     (contribution) => contribution.tool,
   );
   const instructionSections: string[] = [];
+  if (brokeredSecretNames.length > 0) {
+    instructionSections.push(
+      `Brokered secrets available by name: ${brokeredSecretNames.join(", ")}. Their values are not present in the environment. Use \`bb machine env call NAME URL\` to make an allowlisted HTTP request with BB injecting the credential server-side. Brokered secrets are read-only unless write access was explicitly enabled for that secret. Never ask the user to reveal these values.`,
+    );
+  }
   for (const contribution of dynamicToolContributions) {
     if (!contribution.instructions) continue;
     if (contribution.pluginId === null) {

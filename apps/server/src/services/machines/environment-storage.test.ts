@@ -246,6 +246,21 @@ it("migrates legacy settings without changing ciphertext or requiring its key", 
     "utf8",
   );
   db.$client.exec(sql);
+  for (const migration of [
+    "0127_useful_mysterio.sql",
+    "0128_outstanding_nightcrawler.sql",
+    "0129_mean_vision.sql",
+  ]) {
+    db.$client.exec(
+      await readFile(
+        new URL(
+          `../../../../../packages/db/drizzle/${migration}`,
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    );
+  }
   expect(
     db
       .select()

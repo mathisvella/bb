@@ -6,6 +6,7 @@ import {
   setMachineEnvironmentVariable,
   deleteMachineEnvironmentVariable,
 } from "../services/machines/environment-storage.js";
+import { callSecretBroker } from "../services/machines/secret-broker.js";
 import { getGateAuthKind } from "../request-context.js";
 import path from "node:path";
 import {
@@ -332,6 +333,11 @@ export function registerProjectRoutes(app: Hono, deps: AppDeps): void {
     onValidationError: (msg) => new ApiError(400, "invalid_request", msg),
   });
   const routes = publicApiRoutes.projects;
+  post(routes.callMachineEnvironmentBroker, async (context, payload) => {
+    const project = requirePublicProject(deps.db, context.req.param("id"));
+    return context.json(await callSecretBroker(deps, project.id, payload));
+  });
+
   del(routes.deleteMachineEnvironmentVariable, async (context, payload) => {
     if (getGateAuthKind(context) === "machine")
       throw new ApiError(

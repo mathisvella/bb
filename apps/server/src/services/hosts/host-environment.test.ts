@@ -1,6 +1,7 @@
 import { defaultAppSettings } from "@bb/domain";
 import {
   createConnection,
+  createProject,
   migrate,
   upsertHost,
   noopNotifier,
@@ -38,7 +39,15 @@ it("gives every host user environment while forwarding automatic gh credentials 
     await writeFile(join(dataDir, "host-id"), "local-daemon");
     expect(getHost(db, "legacy-remote")?.machineProviderId).toBe("manual");
     await replaceMachineEnvironment(db, dataDir, {
-      variables: [{ name: "MACHINE_VALUE", value: "configured", note: null }],
+      variables: [
+        { name: "MACHINE_VALUE", value: "configured", note: null },
+        {
+          name: "STRIPE_SECRET_KEY",
+          value: "server-only",
+          note: null,
+          brokerPolicy: "stripe",
+        },
+      ],
     });
     const bin = join(dataDir, "bin");
     await mkdir(bin);
@@ -51,6 +60,37 @@ if [ "$1" = auth ]; then printf 'test-gh-secret\\n'; else printf '{"login":"octo
     );
     vi.stubEnv("PATH", `${bin}:${process.env.PATH}`);
     const deps = { db, config: { dataDir } };
+    const { project } = createProject(db, noopNotifier, {
+      name: "Broker override",
+      source: {
+        type: "local_path",
+        hostId: "local-daemon",
+        path: join(dataDir, "project"),
+      },
+    });
+    await replaceMachineEnvironment(
+      db,
+      dataDir,
+      {
+        variables: [
+          {
+            name: "MACHINE_VALUE",
+            value: "project-brokered",
+            note: null,
+            brokerPolicy: "stripe",
+          },
+        ],
+      },
+      project.id,
+    );
+    expect(
+      (
+        await resolveHostEnvironment(deps, {
+          hostId: "local-daemon",
+          projectId: project.id,
+        })
+      ).some((entry) => entry.name === "MACHINE_VALUE"),
+    ).toBe(false);
     expect(
       await resolveHostEnvironment(deps, {
         hostId: "legacy-remote",
@@ -65,6 +105,14 @@ if [ "$1" = auth ]; then printf 'test-gh-secret\\n'; else printf '{"login":"octo
         }),
       ]),
     );
+    expect(
+      (
+        await resolveHostEnvironment(deps, {
+          hostId: "legacy-remote",
+          projectId: null,
+        })
+      ).some((entry) => entry.name === "STRIPE_SECRET_KEY"),
+    ).toBe(false);
     expect(
       await resolveHostEnvironment(deps, {
         hostId: "local-daemon",

@@ -201,6 +201,11 @@ export const environmentVariables = sqliteTable(
     ciphertext: text("ciphertext").notNull(),
     encryptionVersion: integer("encryption_version").notNull(),
     note: text("note"),
+    brokerPolicy: text("broker_policy"),
+    brokerAllowWrite: integer("broker_allow_write", { mode: "boolean" })
+      .notNull()
+      .default(false),
+    brokerHost: text("broker_host"),
     updatedAt: integer("updated_at").notNull(),
   },
   (table) => [

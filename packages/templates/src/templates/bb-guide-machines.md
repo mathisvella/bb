@@ -374,18 +374,30 @@ health. `bb machine env set NAME [--note text] --json` reads its value
 from stdin, removing one trailing newline; values are never accepted in argv.
 `bb machine env unset NAME --json` removes an override. All values are encrypted in the database and never returned by list or set.
 
+Variables use direct access by default and remain readable by agent processes.
+Select a broker policy in Settings, or pass `--broker <policy>` to set, to keep
+the value on the BB server. Brokered variables expose only their names to agent
+threads. `bb machine env call NAME URL [--method GET] [-H 'Name: value']`
+performs the allowlisted HTTPS request and injects the credential server-side.
+Broker calls are read-only unless Allow write requests or `--allow-write` was
+explicitly enabled for that variable. Supabase project credentials additionally
+require the exact `<project-ref>.supabase.co` host. Redirects are not followed,
+credential headers are controlled by BB, and returned values are redacted.
+
 Settings → Environment variables edits variables inline. Add, remove,
 then Save variables; Discard changes leaves saved values
 untouched. Saved secrets can be replaced but never revealed. The automatic
 GH_TOKEN row shows server login health; a custom GH_TOKEN overrides it. User variables
 override built-in values on every connected host, including the primary host.
-Agent-provider variables win over these host values for agent turns. The server synchronizes these values into the daemon environment at connection
+Agent-provider variables win over these host values for agent turns. The server synchronizes direct values into the daemon environment at connection
 and whenever settings change. Background commands and newly launched processes
 inherit them, including git and gh operations. Removing an override restores the
 original daemon value. Existing processes and terminals retain their launch
 environment. Environment synchronization does not restart cached provider
 runtimes; they retain their launch environment until recreated. Runtime output is forwarded as-is,
-so commands and providers can print contributed values.
+so commands and providers can print direct contributed values. Brokered values
+are excluded from daemon, setup, terminal, plugin-host, and provider
+environments, so those processes cannot read or print them.
 
 Plugin host calls start immediately using the current environment while any calls
 are active in that plugin worker. Changed or removed machine variables take

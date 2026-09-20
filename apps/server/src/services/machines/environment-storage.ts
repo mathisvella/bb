@@ -11,6 +11,7 @@ import {
 } from "@bb/db";
 import { readOrCreateSecretFile } from "@bb/secret-storage";
 import {
+  machineEnvironmentBrokerPolicySchema,
   machineEnvironmentNameSchema,
   type MachineEnvironmentReplace,
   type MachineEnvironmentSet,
@@ -24,6 +25,9 @@ const encryptedSchema = z.object({
   name: machineEnvironmentNameSchema,
   ciphertext: z.string(),
   note: z.string().nullable(),
+  brokerPolicy: machineEnvironmentBrokerPolicySchema.nullable(),
+  brokerAllowWrite: z.boolean(),
+  brokerHost: z.string().nullable(),
 });
 type EncryptedVariable = z.infer<typeof encryptedSchema>;
 const locks = new WeakMap<DbConnection, Promise<unknown>>();
@@ -63,6 +67,38 @@ function associatedData(
   );
 }
 
+function validateBrokerSettings(
+  row: Pick<
+    EncryptedVariable,
+    "brokerPolicy" | "brokerAllowWrite" | "brokerHost"
+  >,
+): void {
+  if (row.brokerPolicy === null) {
+    if (row.brokerAllowWrite || row.brokerHost !== null)
+      throw new ApiError(
+        400,
+        "invalid_request",
+        "Direct environment variables cannot configure broker access",
+      );
+    return;
+  }
+  if (row.brokerPolicy === "supabase-project") {
+    if (row.brokerHost === null || !row.brokerHost.endsWith(".supabase.co"))
+      throw new ApiError(
+        400,
+        "invalid_request",
+        "Supabase project secrets require an exact .supabase.co project host",
+      );
+    return;
+  }
+  if (row.brokerHost !== null)
+    throw new ApiError(
+      400,
+      "invalid_request",
+      "A broker host is only valid for the supabase-project policy",
+    );
+}
+
 function encrypt(
   key: Buffer,
   input: MachineEnvironmentSet,
@@ -72,19 +108,26 @@ function encrypt(
   const iv = randomBytes(12);
   const cipher = createCipheriv("aes-256-gcm", key, iv);
   cipher.setAAD(associatedData(row));
-  const encrypted = Buffer.concat([
+  const encryptedValue = Buffer.concat([
     cipher.update(input.value, "utf8"),
     cipher.final(),
   ]);
-  return {
+  const encryptedRow = {
     encryptionVersion: row.encryptionVersion,
     projectId,
     name: input.name,
-    ciphertext: Buffer.concat([iv, cipher.getAuthTag(), encrypted]).toString(
-      "base64",
-    ),
-    note: input.note,
+    ciphertext: Buffer.concat([
+      iv,
+      cipher.getAuthTag(),
+      encryptedValue,
+    ]).toString("base64"),
+    note: input.note ?? null,
+    brokerPolicy: input.brokerPolicy ?? null,
+    brokerAllowWrite: input.brokerAllowWrite ?? false,
+    brokerHost: input.brokerHost ?? null,
   };
+  validateBrokerSettings(encryptedRow);
+  return encryptedRow;
 }
 
 export async function decryptMachineEnvironment(
@@ -170,7 +213,22 @@ export function replaceMachineEnvironment(
           "invalid_request",
           `No saved value for ${variable.name}; reload settings and retry`,
         );
-      return { ...existing, note: variable.note };
+      const replacement = {
+        ...existing,
+        note: variable.note === undefined ? existing.note : variable.note,
+        brokerPolicy:
+          variable.brokerPolicy === undefined
+            ? existing.brokerPolicy
+            : variable.brokerPolicy,
+        brokerAllowWrite:
+          variable.brokerAllowWrite ?? existing.brokerAllowWrite,
+        brokerHost:
+          variable.brokerHost === undefined
+            ? existing.brokerHost
+            : variable.brokerHost,
+      };
+      validateBrokerSettings(replacement);
+      return replacement;
     });
     db.transaction((tx) => {
       tx.delete(environmentVariables).where(scope(projectId)).run();

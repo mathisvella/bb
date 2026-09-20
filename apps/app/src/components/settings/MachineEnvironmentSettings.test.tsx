@@ -92,8 +92,22 @@ it("stages additions and preserves an unchanged saved secret", async () => {
   await waitFor(() =>
     expect(mocks.replace).toHaveBeenCalledExactlyOnceWith({
       variables: [
-        { name: "API_KEY", value: null, note: null },
-        { name: "NEW_VALUE", value: "example", note: null },
+        {
+          name: "API_KEY",
+          value: null,
+          note: null,
+          brokerPolicy: null,
+          brokerAllowWrite: false,
+          brokerHost: null,
+        },
+        {
+          name: "NEW_VALUE",
+          value: "example",
+          note: null,
+          brokerPolicy: null,
+          brokerAllowWrite: false,
+          brokerHost: null,
+        },
       ],
     }),
   );
@@ -117,6 +131,35 @@ it("retains a secret replacement when saving fails", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Save variables" }));
   await screen.findByText(/Some changes could not be saved/);
   expect(screen.getByDisplayValue("replacement")).toBeTruthy();
+});
+
+it("marks a secret as brokered and keeps write access opt-in", async () => {
+  await show();
+  fireEvent.pointerDown(
+    screen.getByRole("button", { name: "Secret access for API_KEY" }),
+    { button: 0 },
+  );
+  fireEvent.click(
+    await screen.findByRole("menuitem", { name: /Broker · Stripe/ }),
+  );
+  expect(
+    screen.getByRole("switch", { name: "Allow write requests for API_KEY" }),
+  ).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Save variables" }));
+  await waitFor(() =>
+    expect(mocks.replace).toHaveBeenCalledWith({
+      variables: [
+        {
+          name: "API_KEY",
+          value: null,
+          note: null,
+          brokerPolicy: "stripe",
+          brokerAllowWrite: false,
+          brokerHost: null,
+        },
+      ],
+    }),
+  );
 });
 
 it("saves an empty project override without copying inherited secrets and removes it to restore inheritance", async () => {
@@ -149,7 +192,16 @@ it("saves an empty project override without copying inherited secrets and remove
   await waitFor(() =>
     expect(mocks.projectReplace).toHaveBeenCalledWith({
       projectId: "project-a",
-      variables: [{ name: "REGION", value: "", note: null }],
+      variables: [
+        {
+          name: "REGION",
+          value: "",
+          note: null,
+          brokerPolicy: null,
+          brokerAllowWrite: false,
+          brokerHost: null,
+        },
+      ],
     }),
   );
   await waitFor(() =>
@@ -213,7 +265,16 @@ it("imports an inherited variable as one override and rejects partial malformed 
   await waitFor(() =>
     expect(mocks.projectReplace).toHaveBeenCalledWith({
       projectId: "project-a",
-      variables: [{ name: "REGION", value: "west", note: null }],
+      variables: [
+        {
+          name: "REGION",
+          value: "west",
+          note: null,
+          brokerPolicy: null,
+          brokerAllowWrite: false,
+          brokerHost: null,
+        },
+      ],
     }),
   );
 });
@@ -243,7 +304,16 @@ it("normalizes imported environment variable names to uppercase", async () => {
   await waitFor(() =>
     expect(mocks.projectReplace).toHaveBeenCalledWith({
       projectId: "project-a",
-      variables: [{ name: "SUPABASE_ANON_LIVE", value: "secret", note: null }],
+      variables: [
+        {
+          name: "SUPABASE_ANON_LIVE",
+          value: "secret",
+          note: null,
+          brokerPolicy: null,
+          brokerAllowWrite: false,
+          brokerHost: null,
+        },
+      ],
     }),
   );
 });

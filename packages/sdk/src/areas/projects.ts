@@ -1,6 +1,8 @@
 import type {
   MachineEnvironmentReplace,
   MachineEnvironmentSet,
+  MachineEnvironmentBrokerCall,
+  MachineEnvironmentBrokerResponse,
   ProjectMachineEnvironmentList,
   CommandListResponse,
   CopyProjectAttachmentsRequest,
@@ -214,6 +216,9 @@ export interface ProjectsArea {
     projectId: string;
     name: string;
   }): Promise<ProjectMachineEnvironmentList>;
+  callMachineEnvironmentBroker(
+    args: { projectId: string } & MachineEnvironmentBrokerCall,
+  ): Promise<MachineEnvironmentBrokerResponse>;
   attachments: ProjectAttachmentsArea;
   branches(args: ProjectBranchesArgs): Promise<ProjectBranchesResult>;
   commands(args: ProjectCommandsArgs): Promise<ProjectCommandsResult>;
@@ -536,7 +541,14 @@ export function createProjectsArea(args: CreateSdkAreaArgs): ProjectsArea {
       return transport.readJson(
         transport.api.v1.projects[":id"]["machine-environment"].$post({
           param: { id: input.projectId },
-          json: { name: input.name, value: input.value, note: input.note },
+          json: {
+            name: input.name,
+            value: input.value,
+            note: input.note,
+            brokerPolicy: input.brokerPolicy,
+            brokerAllowWrite: input.brokerAllowWrite,
+            brokerHost: input.brokerHost,
+          },
         }),
       );
     },
@@ -545,6 +557,21 @@ export function createProjectsArea(args: CreateSdkAreaArgs): ProjectsArea {
         transport.api.v1.projects[":id"]["machine-environment"].$delete({
           param: { id: input.projectId },
           json: { name: input.name },
+        }),
+      );
+    },
+    async callMachineEnvironmentBroker(input) {
+      return transport.readJson(
+        transport.api.v1.projects[":id"]["machine-environment"].broker.$post({
+          param: { id: input.projectId },
+          json: {
+            capabilityToken: input.capabilityToken,
+            name: input.name,
+            method: input.method,
+            url: input.url,
+            headers: input.headers,
+            body: input.body,
+          },
         }),
       );
     },

@@ -678,26 +678,26 @@ schema, a default, and a revision that increments on every write. Writes name
 the revision they expect and receive `409 ui_preference_conflict` when another
 client wrote first, so a stale window cannot silently clobber a newer value.
 
-| Key                               | Value                                               |
-| --------------------------------- | --------------------------------------------------- |
-| `sidebar.organizationMode`        | `project`, `chronological`, or `machine`            |
-| `sidebar.threadGrouping.environment` | `auto`, `true`, or `false`                       |
-| `sidebar.chronologicalSort`       | `updated`, `created`, `alpha`, or `none`            |
-| `sidebar.sectionOrder`            | Section id list for **By project**                  |
-| `sidebar.manualSectionOrder`      | Section id list for **Manually**                    |
-| `sidebar.machineSectionOrder`     | Section id list for **By machine**                  |
-| `sidebar.collapsedSections`       | Collapsed built-in sections (`pinned`, `threads`)   |
-| `sidebar.collapsedProjects`       | Collapsed project ids                               |
-| `sidebar.collapsedThreads`        | Thread ids whose children are collapsed             |
-| `sidebar.collapsedEnvironments`   | Collapsed environment ids                           |
-| `sidebar.collapsedThreadSections` | Collapsed thread section ids                        |
-| `sidebar.collapsedMachines`       | Collapsed machine ids                               |
-| `sidebar.footerOrder`             | Footer action order                                 |
-| `sidebar.hiddenFooterItems`       | Footer actions moved into More                      |
-| `sidebar.pluginPanelOrder`        | Navigation entry order                              |
-| `sidebar.visiblePluginPanels`     | Navigation entries shown, or `null` for every entry |
-| `sidebar.navigationProvider`      | Plugin key, `__automatic__`, or `__builtin__`       |
-| `sidebar.threadListProvider`      | Plugin key, `__automatic__`, or `__builtin__`       |
+| Key                                  | Value                                               |
+| ------------------------------------ | --------------------------------------------------- |
+| `sidebar.organizationMode`           | `project`, `chronological`, or `machine`            |
+| `sidebar.threadGrouping.environment` | `auto`, `true`, or `false`                          |
+| `sidebar.chronologicalSort`          | `updated`, `created`, `alpha`, or `none`            |
+| `sidebar.sectionOrder`               | Section id list for **By project**                  |
+| `sidebar.manualSectionOrder`         | Section id list for **Manually**                    |
+| `sidebar.machineSectionOrder`        | Section id list for **By machine**                  |
+| `sidebar.collapsedSections`          | Collapsed built-in sections (`pinned`, `threads`)   |
+| `sidebar.collapsedProjects`          | Collapsed project ids                               |
+| `sidebar.collapsedThreads`           | Thread ids whose children are collapsed             |
+| `sidebar.collapsedEnvironments`      | Collapsed environment ids                           |
+| `sidebar.collapsedThreadSections`    | Collapsed thread section ids                        |
+| `sidebar.collapsedMachines`          | Collapsed machine ids                               |
+| `sidebar.footerOrder`                | Footer action order                                 |
+| `sidebar.hiddenFooterItems`          | Footer actions moved into More                      |
+| `sidebar.pluginPanelOrder`           | Navigation entry order                              |
+| `sidebar.visiblePluginPanels`        | Navigation entries shown, or `null` for every entry |
+| `sidebar.navigationProvider`         | Plugin key, `__automatic__`, or `__builtin__`       |
+| `sidebar.threadListProvider`         | Plugin key, `__automatic__`, or `__builtin__`       |
 
 Custom (`chronological`) is the default for `sidebar.organizationMode` when no
 value is saved. Existing server and legacy browser choices are preserved.
@@ -1431,6 +1431,25 @@ in its data directory's `machine-environment-key` file (mode 0600); back it up
 with the database. Names and notes are public metadata; settings APIs never
 return saved values. Provider environment diagnostics mask core contributions.
 Commands can still print their own environment values.
+
+Each variable can instead use a broker policy. Direct variables retain the
+behavior above and are readable by agents and commands. A brokered variable is
+never included in host, setup, terminal, plugin, or provider environments. Agent
+threads receive its name and an expiring capability that can only ask the BB
+server to call the configured API. The server validates HTTPS, the exact
+provider host and path prefix, the secret name, the owning project and thread,
+and whether non-GET methods were explicitly enabled. It does not follow
+redirects, it owns authentication headers, and it redacts the credential from
+response headers and text bodies before returning them to the agent.
+
+Built-in policies cover Stripe, Cloudflare, Sentry, Postmark, Supabase
+management, and a specific Supabase project host. Supabase project policies
+require the exact `<project-ref>.supabase.co` hostname; wildcard project hosts
+are not accepted. Brokered HTTP calls use
+`bb machine env call NAME URL [--method METHOD] [-H 'Name: value']`. Pipe a
+request body with `--body-stdin`. `bb machine env set` accepts `--broker`,
+`--broker-host`, and `--allow-write`. Broker capabilities authorize API use,
+not retrieval of the stored value.
 
 Built-in credentials are overridden by global variables, then project variables.
 Agent-provider contributions retain precedence over these values. Empty strings

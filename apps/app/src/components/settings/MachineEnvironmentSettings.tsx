@@ -10,6 +10,7 @@ import { useUpdateGeneralSettings } from "@/hooks/mutations/settings-mutations";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   machineEnvironmentSetSchema,
+  type MachineEnvironmentBrokerPolicy,
   type MachineEnvironmentList,
   type MachineEnvironmentVariable,
 } from "@bb/server-contract";
@@ -27,6 +28,48 @@ import {
 import { machineEnvironmentQueryKey } from "@/hooks/queries/query-keys";
 
 const GLOBAL_SCOPE = "global";
+const DIRECT_ACCESS = "direct";
+const BROKER_OPTIONS: readonly {
+  value: MachineEnvironmentBrokerPolicy | typeof DIRECT_ACCESS;
+  label: string;
+  description: string;
+}[] = [
+  {
+    value: DIRECT_ACCESS,
+    label: "Direct · agent-readable",
+    description: "Inject the value into agent processes and project commands.",
+  },
+  {
+    value: "stripe",
+    label: "Broker · Stripe",
+    description: "Only api.stripe.com/v1; injected as a Bearer token.",
+  },
+  {
+    value: "cloudflare",
+    label: "Broker · Cloudflare",
+    description: "Only api.cloudflare.com/client/v4; Bearer token.",
+  },
+  {
+    value: "sentry",
+    label: "Broker · Sentry",
+    description: "Only sentry.io/api/0; injected as a Bearer token.",
+  },
+  {
+    value: "postmark",
+    label: "Broker · Postmark",
+    description: "Only api.postmarkapp.com; server-token header.",
+  },
+  {
+    value: "supabase-management",
+    label: "Broker · Supabase management",
+    description: "Only api.supabase.com; injected as a Bearer token.",
+  },
+  {
+    value: "supabase-project",
+    label: "Broker · Supabase project",
+    description: "Only project hosts ending in .supabase.co.",
+  },
+];
 
 type DraftRow = Omit<MachineEnvironmentVariable, "value"> & {
   id: string;
@@ -94,6 +137,9 @@ export function ScopedMachineEnvironmentSettings({
         name: row.name,
         value: row.value,
         note: row.note,
+        brokerPolicy: row.brokerPolicy ?? null,
+        brokerAllowWrite: row.brokerAllowWrite ?? false,
+        brokerHost: row.brokerHost ?? null,
       })),
     };
     if (projectId === null) await sdk.system.replaceMachineEnvironment(input);
@@ -166,10 +212,18 @@ export function MachineEnvironmentSettingsContent({
   const issues = rows.map((row) => {
     if (rows.filter((other) => other.name === row.name).length > 1)
       return "Variable name already exists.";
+    if (
+      row.brokerPolicy === "supabase-project" &&
+      (!row.brokerHost || !row.brokerHost.endsWith(".supabase.co"))
+    )
+      return "Enter the exact Supabase project host ending in .supabase.co.";
     const result = machineEnvironmentSetSchema.safeParse({
       name: row.name,
       value: row.value ?? "",
       note: row.note,
+      brokerPolicy: row.brokerPolicy ?? null,
+      brokerAllowWrite: row.brokerAllowWrite ?? false,
+      brokerHost: row.brokerHost ?? null,
     });
     return result.success
       ? null
@@ -203,6 +257,10 @@ export function MachineEnvironmentSettingsContent({
           base === undefined ||
           base.name !== row.name ||
           base.note !== row.note ||
+          (base.brokerPolicy ?? null) !== (row.brokerPolicy ?? null) ||
+          (base.brokerAllowWrite ?? false) !==
+            (row.brokerAllowWrite ?? false) ||
+          (base.brokerHost ?? null) !== (row.brokerHost ?? null) ||
           row.value !== null
         );
       }));
@@ -220,6 +278,9 @@ export function MachineEnvironmentSettingsContent({
         value: "",
         secret: true,
         note: null,
+        brokerPolicy: null,
+        brokerAllowWrite: false,
+        brokerHost: null,
       },
     ]);
   const importRows = (entries: readonly ParsedEnvEntry[]) => {
@@ -237,6 +298,9 @@ export function MachineEnvironmentSettingsContent({
           value: entry.value,
           secret: true,
           note: null,
+          brokerPolicy: null,
+          brokerAllowWrite: false,
+          brokerHost: null,
         });
     }
     setDraft(next);
@@ -293,6 +357,9 @@ export function MachineEnvironmentSettingsContent({
                 value: null,
                 secret: true,
                 note: null,
+                brokerPolicy: null,
+                brokerAllowWrite: false,
+                brokerHost: null,
               })
             }
           />
@@ -334,6 +401,25 @@ export function MachineEnvironmentSettingsContent({
                 }
                 onNameChange={(name) => change(entry.row.id, { name })}
                 onValueChange={(value) => change(entry.row.id, { value })}
+                onBrokerPolicyChange={(brokerPolicy) =>
+                  change(entry.row.id, {
+                    brokerPolicy,
+                    brokerAllowWrite:
+                      brokerPolicy === null
+                        ? false
+                        : (entry.row.brokerAllowWrite ?? false),
+                    brokerHost:
+                      brokerPolicy === "supabase-project"
+                        ? (entry.row.brokerHost ?? null)
+                        : null,
+                  })
+                }
+                onBrokerHostChange={(brokerHost) =>
+                  change(entry.row.id, { brokerHost })
+                }
+                onBrokerAllowWriteChange={(brokerAllowWrite) =>
+                  change(entry.row.id, { brokerAllowWrite })
+                }
                 onToggleReveal={() =>
                   setVisible((current) => {
                     const next = new Set(current);
@@ -596,6 +682,9 @@ export function MachineEnvironmentVariableRow({
   onBlur,
   onNameChange,
   onValueChange,
+  onBrokerPolicyChange = () => {},
+  onBrokerAllowWriteChange = () => {},
+  onBrokerHostChange = () => {},
   onToggleReveal,
   onRemove,
 }: {
@@ -608,6 +697,11 @@ export function MachineEnvironmentVariableRow({
   onBlur: () => void;
   onNameChange: (name: string) => void;
   onValueChange: (value: string) => void;
+  onBrokerPolicyChange?: (
+    policy: MachineEnvironmentBrokerPolicy | null,
+  ) => void;
+  onBrokerAllowWriteChange?: (allow: boolean) => void;
+  onBrokerHostChange?: (host: string) => void;
   onToggleReveal: () => void;
   onRemove: () => void;
 }) {
@@ -660,6 +754,43 @@ export function MachineEnvironmentVariableRow({
           <Icon name="X" className="size-4" />
         </Button>
       </div>
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <OptionPicker
+          modal={false}
+          label={`Secret access for ${row.name || `variable ${index + 1}`}`}
+          value={row.brokerPolicy ?? DIRECT_ACCESS}
+          options={BROKER_OPTIONS}
+          disabled={disabled}
+          className="max-w-full"
+          contentClassName="w-80 max-w-[calc(100vw-2rem)]"
+          onChange={(value) =>
+            onBrokerPolicyChange(value === DIRECT_ACCESS ? null : value)
+          }
+        />
+        {row.brokerPolicy != null && (
+          <label className="flex items-center gap-2 text-xs text-subtle-foreground">
+            <Switch
+              aria-label={`Allow write requests for ${row.name || `variable ${index + 1}`}`}
+              checked={row.brokerAllowWrite ?? false}
+              disabled={disabled}
+              onCheckedChange={onBrokerAllowWriteChange}
+            />
+            Allow write requests
+          </label>
+        )}
+      </div>
+      {row.brokerPolicy === "supabase-project" && (
+        <Input
+          className="font-mono"
+          aria-label={`Allowed Supabase host for ${row.name || `variable ${index + 1}`}`}
+          placeholder="project-ref.supabase.co"
+          value={row.brokerHost ?? ""}
+          disabled={disabled}
+          onChange={(event) =>
+            onBrokerHostChange(event.target.value.trim().toLowerCase())
+          }
+        />
+      )}
       {caption && <p className={ROW_CAPTION_CLASS_NAME}>{caption}</p>}
       {error && (
         <p role="alert" className="text-xs text-destructive-text">

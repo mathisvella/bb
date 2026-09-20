@@ -1,0 +1,1 @@
+ALTER TABLE `environment_variables` ADD `broker_policy` text;

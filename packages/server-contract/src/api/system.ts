@@ -41,7 +41,7 @@ export const machineEnvironmentReplaceSchema = z
       names.add(variable.name);
     }
   });
-export type MachineEnvironmentReplace = z.infer<
+export type MachineEnvironmentReplace = z.input<
   typeof machineEnvironmentReplaceSchema
 >;
 

@@ -15,19 +15,21 @@ export async function resolveUserMachineEnvironment(
 ): Promise<HostDaemonContributedEnvEntry[]> {
   const rows = readMachineEnvironment(db, projectId);
   return Promise.all(
-    rows.map(async (row) => ({
-      name: row.name,
-      value: await decryptMachineEnvironment(dataDir, row),
-      reason:
-        row.note ??
-        (projectId === null
-          ? "Global machine environment setting"
-          : "Project machine environment setting"),
-      source: {
-        core:
-          projectId === null ? "machine-environment" : "project-environment",
-      },
-    })),
+    rows
+      .filter((row) => row.brokerPolicy === null)
+      .map(async (row) => ({
+        name: row.name,
+        value: await decryptMachineEnvironment(dataDir, row),
+        reason:
+          row.note ??
+          (projectId === null
+            ? "Global machine environment setting"
+            : "Project machine environment setting"),
+        source: {
+          core:
+            projectId === null ? "machine-environment" : "project-environment",
+        },
+      })),
   );
 }
 
@@ -40,6 +42,9 @@ export async function machineEnvironmentView(
     value: null,
     secret: true as const,
     note: row.note,
+    brokerPolicy: row.brokerPolicy,
+    brokerAllowWrite: row.brokerAllowWrite,
+    brokerHost: row.brokerHost,
   }));
   const overridden = variables.some((row) => row.name === "GH_TOKEN");
   const enabled = getAppSettings(db).machineGitCredentialsEnabled;
@@ -80,6 +85,9 @@ export async function projectMachineEnvironmentView(
     value: null,
     secret: true as const,
     note: row.note,
+    brokerPolicy: row.brokerPolicy,
+    brokerAllowWrite: row.brokerAllowWrite,
+    brokerHost: row.brokerHost,
   }));
   return {
     builtInGit: variables.some((row) => row.name === "GH_TOKEN")

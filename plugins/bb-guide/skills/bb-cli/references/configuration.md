@@ -150,6 +150,12 @@ output is forwarded as-is, so commands and providers can print contributed
 values. `bb machine env unset NAME --json` removes an override. All values are
 encrypted in the database and omitted from settings responses.
 
+Use `--broker <policy>` to keep a value out of agent and command environments.
+Agent threads can then use `bb machine env call NAME URL`; BB validates the
+destination and injects the credential server-side. Broker requests are GET-only
+unless `--allow-write` was explicitly set. `supabase-project` also requires
+`--broker-host <project-ref>.supabase.co`.
+
 These settings apply globally to every connected machine, including the primary
 host. The server synchronizes them into the daemon environment on connection and
 settings changes, so background commands and new child processes inherit them.
