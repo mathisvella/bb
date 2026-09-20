@@ -225,14 +225,15 @@ export function MachineEnvironmentSettingsContent({
   const importRows = (entries: readonly ParsedEnvEntry[]) => {
     const next = [...rows];
     for (const entry of entries) {
-      const index = next.findIndex((row) => row.name === entry.name);
+      const name = entry.name.toUpperCase();
+      const index = next.findIndex((row) => row.name === name);
       const existing = index === -1 ? undefined : next[index];
       if (existing) next[index] = { ...existing, value: entry.value };
       else
         next.push({
           id: nanoid(),
           nameLocked: false,
-          name: entry.name,
+          name,
           value: entry.value,
           secret: true,
           note: null,

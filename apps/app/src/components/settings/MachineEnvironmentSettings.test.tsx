@@ -218,7 +218,7 @@ it("imports an inherited variable as one override and rejects partial malformed 
   );
 });
 
-it("imports and saves lowercase environment variable names", async () => {
+it("normalizes imported environment variable names to uppercase", async () => {
   mocks.projectList.mockResolvedValue({
     builtInGit: { status: "disabled", statusMessage: "Disabled" },
     variables: [],
@@ -243,7 +243,7 @@ it("imports and saves lowercase environment variable names", async () => {
   await waitFor(() =>
     expect(mocks.projectReplace).toHaveBeenCalledWith({
       projectId: "project-a",
-      variables: [{ name: "supabase_anon_live", value: "secret", note: null }],
+      variables: [{ name: "SUPABASE_ANON_LIVE", value: "secret", note: null }],
     }),
   );
 });
