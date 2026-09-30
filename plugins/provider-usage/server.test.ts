@@ -355,3 +355,68 @@ it("collapses known account observations per machine, preserves unknown identiti
     await harness.lifecycle.dispose();
   }
 });
+
+it("hides Cursor without fetching it and can reveal it through plugin settings", async () => {
+  const rpc = vi.fn(async ({ method }) => {
+    if (method === usageListMethod)
+      return {
+        resources: [
+          {
+            id: "cursor",
+            providerId: "acp-cursor",
+            label: "Cursor",
+            scope: { kind: "host", hostId: "host", hostName: "Machine" },
+          },
+        ],
+      };
+    return { observedAt: 123, usage: { status: "unauthenticated" } };
+  });
+  const host = createFakePluginHost({
+    pluginId: "provider-usage",
+    sdk: {
+      hosts: {
+        list: async () => [
+          makeHostResponse({ id: "host", status: "connected" }),
+        ],
+      },
+      providers: { list: async () => [] },
+      system: { config: async () => ({ primaryHostId: null }) },
+      plugins: {
+        experimental_discoverRpc: async () => [
+          {
+            pluginId: "cursor-source",
+            displayName: "Cursor",
+            method: usageListMethod,
+          },
+        ],
+        callRpc: rpc,
+      },
+    },
+  });
+  plugin(host.bb);
+  const request = {
+    force: false,
+    machineIds: ["host"],
+    providerId: "acp-cursor",
+    maxAgeMs: 60_000,
+  };
+  try {
+    expect(
+      await host.harness.behavior.callRpc("getUsage", request),
+    ).toMatchObject({ machines: [{ providers: [] }] });
+    expect(
+      rpc.mock.calls.every(([args]) => args.method === usageListMethod),
+    ).toBe(true);
+    await host.harness.behavior.setSettings({ showCursor: true });
+    expect(
+      await host.harness.behavior.callRpc("getUsage", request),
+    ).toMatchObject({
+      machines: [{ providers: [{ providerId: "acp-cursor" }] }],
+    });
+    expect(
+      rpc.mock.calls.some(([args]) => args.method === usageFetchMethod),
+    ).toBe(true);
+  } finally {
+    await host.harness.lifecycle.dispose();
+  }
+});

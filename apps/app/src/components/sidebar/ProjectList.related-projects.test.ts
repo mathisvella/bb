@@ -43,6 +43,28 @@ describe("buildRelatedProjectPresentation", () => {
     });
   });
 
+  it("does not nest unrelated names with the same prefix length", () => {
+    const presentation = buildRelatedProjectPresentation([
+      { id: "heep", name: "Heep" },
+      { id: "other", name: "Kowl Website" },
+    ]);
+    expect(presentation.get("other")).toEqual({
+      displayName: "Kowl Website",
+      isChild: false,
+    });
+  });
+
+  it("recognizes related repository names regardless of casing", () => {
+    const presentation = buildRelatedProjectPresentation([
+      { id: "heep", name: "heep" },
+      { id: "website", name: "Heep Website v2" },
+    ]);
+    expect(presentation.get("website")).toEqual({
+      displayName: "Website v2",
+      isChild: true,
+    });
+  });
+
   it("supports separator based repository names", () => {
     const presentation = buildRelatedProjectPresentation([
       { id: "hip", name: "HIP" },
