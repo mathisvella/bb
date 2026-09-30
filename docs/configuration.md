@@ -1535,3 +1535,7 @@ or with `bb settings general telemetryEnabled false`. The saved server-wide pref
 takes effect immediately and persists across restarts. SDK callers can use
 `system.updateGeneralSettings` with `telemetryEnabled`. `BB_TELEMETRY=false`
 always disables telemetry, even when the saved preference is enabled.
+
+Provider usage hides Cursor by default. Enable it in the Provider usage plugin settings
+or with `bb plugin config provider-usage set showCursor true`. This preference affects
+the usage card, usage page and usage RPC output; Cursor remains available as an agent.

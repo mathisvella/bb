@@ -154,6 +154,15 @@ function resourceProvider(
 }
 
 export default function providerUsagePlugin(bb: BbPluginApi): void {
+  const settings = bb.settings.define({
+    showCursor: {
+      type: "boolean",
+      label: "Show Cursor usage",
+      description:
+        "Include Cursor accounts in the usage card and usage settings.",
+      default: false,
+    },
+  });
   const inventories = new Map<string, SourceResult>();
   const measurements = new Map<
     string,
@@ -200,7 +209,7 @@ export default function providerUsagePlugin(bb: BbPluginApi): void {
   };
   const readUsage = async (request: UsageRequest): Promise<UsageSnapshot> => {
     const hostId = request.machineIds?.find((id) => !id.startsWith("source:"));
-    const [hosts, sources, providers, config] = await Promise.all([
+    const [hosts, sources, providers, config, preferences] = await Promise.all([
       bb.sdk.hosts
         .list()
         .then((hosts) => hosts.filter((host) => host.type !== "ephemeral")),
@@ -213,6 +222,7 @@ export default function providerUsagePlugin(bb: BbPluginApi): void {
         )
         .catch(() => []),
       bb.sdk.system.config().catch(() => null),
+      settings.get(),
     ]);
     hosts.sort(
       (a, b) =>
@@ -269,6 +279,7 @@ export default function providerUsagePlugin(bb: BbPluginApi): void {
               ? `source:${source.pluginId}`
               : resource.scope.hostId;
           return (
+            (preferences.showCursor || resource.providerId !== "acp-cursor") &&
             request.providerId !== null &&
             resource.providerId === request.providerId &&
             (request.machineIds === null ||
@@ -332,6 +343,8 @@ export default function providerUsagePlugin(bb: BbPluginApi): void {
           error: source.error,
         });
       for (const resource of source.resources) {
+        if (!preferences.showCursor && resource.providerId === "acp-cursor")
+          continue;
         const machineId =
           resource.scope.kind === "shared"
             ? `source:${source.pluginId}`

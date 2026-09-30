@@ -37,3 +37,7 @@ explicit enable/disable choices are preserved. Right-click the footer shortcut a
 choose **Hide** to move it into **More**. Settings → Appearance → Sidebar footer
 controls order and visibility for every footer action. The usage settings page
 remains available. These preferences belong to BB, not the plugin.
+
+Provider usage hides Cursor by default. Enable it in the Provider usage plugin settings
+or with `bb plugin config provider-usage set showCursor true`. This preference affects
+the usage card, usage page and usage RPC output; Cursor remains available as an agent.

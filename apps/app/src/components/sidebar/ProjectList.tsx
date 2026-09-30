@@ -235,12 +235,15 @@ export function buildRelatedProjectPresentation(
     for (const candidate of projects) {
       if (
         candidate.id === project.id ||
-        candidate.name.length >= project.name.length
+        candidate.name.length >= project.name.length ||
+        !project.name
+          .toLocaleLowerCase()
+          .startsWith(candidate.name.toLocaleLowerCase())
       ) {
         continue;
       }
       const remainder = project.name.slice(candidate.name.length);
-      if (!/^(?:\\s+|\\s*[-/:]\\s*)\\S/u.test(remainder)) {
+      if (!/^(?:\s+|\s*[-/:]\s*)\S/u.test(remainder)) {
         continue;
       }
       if (parent === null || candidate.name.length > parent.name.length) {
@@ -248,12 +251,15 @@ export function buildRelatedProjectPresentation(
       }
     }
     if (parent === null) {
-      presentation.set(project.id, { displayName: project.name, isChild: false });
+      presentation.set(project.id, {
+        displayName: project.name,
+        isChild: false,
+      });
       continue;
     }
     const displayName = project.name
       .slice(parent.name.length)
-      .replace(/^\\s*[-/:]?\\s*/u, "")
+      .replace(/^\s*[-/:]?\s*/u, "")
       .trim();
     presentation.set(project.id, {
       displayName: displayName.length > 0 ? displayName : project.name,
