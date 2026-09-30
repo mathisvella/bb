@@ -91,8 +91,17 @@ export function selectUsageMachine(
     machines.find((machine) => machine.id === requestedId) ??
     machines.find(
       (machine) =>
-        machine.id.startsWith("source:") &&
-        (machine.error === null || machine.providers.length > 0),
+        machine.id.startsWith("source:") && machine.providers.length > 0,
+    ) ??
+    machines.find(
+      (machine) =>
+        machine.id === threadMachineId &&
+        machine.status === "connected" &&
+        machine.providers.length > 0,
+    ) ??
+    machines.find(
+      (machine) =>
+        machine.status === "connected" && machine.providers.length > 0,
     ) ??
     machines.find((machine) => machine.id === threadMachineId) ??
     machines.find((machine) => machine.status === "connected") ??

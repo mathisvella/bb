@@ -2415,9 +2415,14 @@ function maintenanceForRequest(
 
 function maintenanceTarget(
   providerOptions: Record<string, unknown> | undefined,
-): { maintenance: AcpMaintenanceDialect | undefined; command: string | null } {
+): {
+  maintenance: AcpMaintenanceDialect | undefined;
+  command: string | null;
+  launchSpec: AcpLaunchSpec | null;
+} {
   const launchSpec = decodeLaunchSpec(providerOptions);
   return {
+    launchSpec,
     maintenance: maintenanceForRequest(providerOptions, launchSpec),
     command: launchSpec?.command ?? null,
   };

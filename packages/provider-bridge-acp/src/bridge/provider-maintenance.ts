@@ -21,6 +21,12 @@ import {
 } from "@bb/provider-bridge-protocol/bridge-kit";
 import { z } from "zod";
 
+import type { AcpLaunchSpec } from "../launch-spec.js";
+import {
+  customUsageKind,
+  readCustomProviderUsage,
+} from "./custom-provider-usage.js";
+
 const execFileAsync = promisify(execFile);
 const USAGE_FETCH_TIMEOUT_MS = 15_000;
 const CURSOR_DASHBOARD_URL =
@@ -373,17 +379,21 @@ function fetchDashboard(
 }
 
 export async function getAcpProviderUsage(args: {
+  launchSpec?: AcpLaunchSpec | null;
   maintenance: AcpMaintenanceDialect | undefined;
   command: string | null;
 }): Promise<ProviderUsageResult> {
-  if (args.maintenance === undefined) return { supported: false };
+  const custom = args.launchSpec && customUsageKind(args.launchSpec);
+  if (!custom && args.maintenance === undefined) return { supported: false };
   if (
     args.command === null ||
     (await resolveExecutablePath(args.command)) === null
   ) {
     return { supported: true, usage: { status: "not_installed" } };
   }
-  return args.maintenance.readUsage();
+  if (custom && args.launchSpec)
+    return readCustomProviderUsage(args.launchSpec);
+  return args.maintenance?.readUsage() ?? { supported: false };
 }
 
 export const CURSOR_ACP_MAINTENANCE: AcpMaintenanceDialect = {

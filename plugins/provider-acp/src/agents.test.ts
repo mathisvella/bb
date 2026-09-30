@@ -191,8 +191,61 @@ describe("custom agents that report usage", () => {
 
     expect(customAcpAgentDefinition(agent).providerUsage).toBe(true);
     expect(
-      acpProviderDeclaration(customAcpAgentDefinition(agent)).maintenance?.usage,
+      acpProviderDeclaration(customAcpAgentDefinition(agent)).maintenance
+        ?.usage,
     ).toBe(true);
+  });
+
+  it("enables usage for isolated Claude profiles and OpenRouter-only OpenCode agents", () => {
+    for (const entry of [
+      {
+        id: "claude-second",
+        displayName: "Second",
+        command: "/opt/runtime/claude-agent-acp",
+        env: { CLAUDE_CONFIG_DIR: "/root/.claude-second" },
+      },
+      {
+        id: "openrouter",
+        displayName: "OpenRouter",
+        command: "/opt/runtime/opencode",
+        dialect: "opencode",
+        env: {
+          OPENCODE_CONFIG_CONTENT: JSON.stringify({
+            enabled_providers: ["openrouter"],
+          }),
+        },
+      },
+    ]) {
+      expect(
+        acpProviderDeclaration(customAcpAgentDefinition(parse(entry)))
+          .maintenance?.usage,
+      ).toBe(true);
+      expect(
+        acpProviderDeclaration(
+          customAcpAgentDefinition(parse({ ...entry, providerUsage: false })),
+        ).maintenance?.usage,
+      ).toBe(false);
+    }
+  });
+
+  it("does not infer usage for mixed or malformed OpenCode configurations", () => {
+    for (const config of [
+      "invalid",
+      JSON.stringify({ enabled_providers: ["openrouter", "anthropic"] }),
+    ]) {
+      expect(
+        acpProviderDeclaration(
+          customAcpAgentDefinition(
+            parse({
+              id: "opencode-custom",
+              displayName: "OpenCode",
+              command: "opencode",
+              env: { OPENCODE_CONFIG_CONTENT: config },
+            }),
+          ),
+        ).maintenance?.usage,
+      ).toBe(false);
+    }
   });
 
   it("stays out of the usage surface by default", () => {
@@ -205,7 +258,8 @@ describe("custom agents that report usage", () => {
 
     expect(customAcpAgentDefinition(agent).providerUsage).toBeUndefined();
     expect(
-      acpProviderDeclaration(customAcpAgentDefinition(agent)).maintenance?.usage,
+      acpProviderDeclaration(customAcpAgentDefinition(agent)).maintenance
+        ?.usage,
     ).toBe(false);
   });
 });

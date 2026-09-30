@@ -58,6 +58,23 @@ export const customAcpAgentSchema = z
   .strict();
 export type CustomAcpAgent = z.infer<typeof customAcpAgentSchema>;
 
+function hasCustomUsage(agent: CustomAcpAgent): boolean {
+  const executable = agent.command
+    .split(/[\\/]/u)
+    .at(-1)
+    ?.replace(/\.(?:cmd|exe)$/iu, "");
+  if (executable === "claude-agent-acp" && agent.env.CLAUDE_CONFIG_DIR?.trim())
+    return true;
+  if (executable !== "opencode") return false;
+  try {
+    return z
+      .object({ enabled_providers: z.tuple([z.literal("openrouter")]) })
+      .safeParse(JSON.parse(agent.env.OPENCODE_CONFIG_CONTENT ?? "{}")).success;
+  } catch {
+    return false;
+  }
+}
+
 const CUSTOM_AGENT_GLYPH = "Toolbox";
 
 export function customAcpAgentDefinition(
@@ -88,7 +105,9 @@ export function customAcpAgentDefinition(
         ? {}
         : { permissionCli: agent.permissionCli }),
     },
-    ...(agent.providerUsage ? { providerUsage: true } : {}),
+    ...((agent.providerUsage ?? hasCustomUsage(agent))
+      ? { providerUsage: true }
+      : {}),
     ...(agent.dialect === undefined ? {} : { dialect: agent.dialect }),
     ...(shipped?.nativeRootsResolver === undefined
       ? {}
