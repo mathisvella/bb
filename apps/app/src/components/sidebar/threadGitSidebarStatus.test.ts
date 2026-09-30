@@ -18,7 +18,11 @@ function workspace(
       lineStatsComplete: true,
       files: [],
     },
-    checkout: { kind: "branch", name: "feature/test" },
+    checkout: {
+      kind: "branch",
+      branchName: "feature/test",
+      headSha: "def456",
+    },
     branch: {
       currentBranch: "feature/test",
       defaultBranch: "main",
