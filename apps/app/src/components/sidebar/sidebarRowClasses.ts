@@ -8,7 +8,7 @@ import { CONTEXT_SELECTION_SURFACE_CLASS } from "@/components/ui/context-selecti
 import { SIDEBAR_HOVER_ACTIONS_GAP_CLASS } from "@/components/ui/sidebar-hover-actions";
 
 export const SIDEBAR_ROW_BASE_CLASS =
-  "flex w-full items-center gap-2 rounded-md pr-0 text-sm transition-colors";
+  "flex w-full items-center gap-1.5 rounded-md pr-0 text-xs transition-colors";
 
 export const SIDEBAR_ROW_GLYPH_SLOT_CLASS =
   "inline-flex shrink-0 items-center justify-center text-subtle-foreground";

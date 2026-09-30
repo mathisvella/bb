@@ -205,6 +205,8 @@ export interface ProjectRowProps {
   projectDragBindings?: SidebarSortableDragBindings;
   projectRowRef?: (element: HTMLDivElement | null) => void;
   projectRowStyle?: CSSProperties;
+  relatedProjectDisplayName?: string;
+  isRelatedProjectChild?: boolean;
 }
 
 interface ProjectThreadTreeProps {
@@ -2380,10 +2382,13 @@ function ProjectRowComponent({
   projectDragBindings,
   projectRowRef,
   projectRowStyle,
+  relatedProjectDisplayName,
+  isRelatedProjectChild = false,
 }: ProjectRowProps) {
   const [isDropdownActionsOpen, setIsDropdownActionsOpen] = useState(false);
   const [isContextActionsOpen, setIsContextActionsOpen] = useState(false);
   const isActionsOpen = isDropdownActionsOpen || isContextActionsOpen;
+  const projectDisplayName = relatedProjectDisplayName ?? project.name;
   const projectThreads = useMemo(
     () =>
       isCollapsed && threadListState.status === "ready"
@@ -2422,7 +2427,7 @@ function ProjectRowComponent({
   ) : null;
   const projectActions = (
     <SidebarHeaderControls
-      label={project.name}
+      label={projectDisplayName}
       showNewThread={!isLocalPathInvalid}
       onNewThread={onCreateProjectThread ? handleCreateThread : undefined}
       onOpenChange={setIsDropdownActionsOpen}
@@ -2439,9 +2444,13 @@ function ProjectRowComponent({
       <div
         data-sidebar-sticky-project-item=""
         data-sidebar-project-id={project.id}
+        className={cn(
+          isRelatedProjectChild &&
+            "ml-3 border-l border-sidebar-border/70 pl-1",
+        )}
       >
         <TopLevelSidebarSection
-          label={project.name}
+          label={projectDisplayName}
           status={projectStatus}
           actions={
             isLocalPathInvalid && isCollapsed ? undefined : projectActions
@@ -2574,7 +2583,9 @@ function areProjectRowPropsEqual(
       next.consumeProjectClickSuppression ||
     prev.projectDragBindings !== next.projectDragBindings ||
     prev.projectRowRef !== next.projectRowRef ||
-    prev.projectRowStyle !== next.projectRowStyle
+    prev.projectRowStyle !== next.projectRowStyle ||
+    prev.relatedProjectDisplayName !== next.relatedProjectDisplayName ||
+    prev.isRelatedProjectChild !== next.isRelatedProjectChild
   ) {
     return false;
   }

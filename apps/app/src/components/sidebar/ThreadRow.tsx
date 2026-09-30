@@ -14,6 +14,7 @@ import type { ThreadListEntry } from "@bb/domain";
 import type { PluginComposerThreadRowStatus } from "@get-bb/plugin-sdk";
 import { getThreadConversationCollapsedAtom } from "@/components/secondary-panel/threadSecondaryPanelAtoms";
 import { Icon } from "@bb/shared-ui/icon";
+import "@bb/shared-ui/icon-extended";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@bb/shared-ui/tooltip";
 import { SidebarStickyTier } from "@/components/ui/sidebar.js";
 import { NavLink } from "react-router-dom";
@@ -81,8 +82,88 @@ import {
   type ThreadStatusGlyphProps,
 } from "@/components/thread/ThreadStatusGlyph";
 import { usePluginThreadRowStatus } from "@/lib/plugin-thread-row-status";
+import {
+  getEnvironmentPullRequestFromResponse,
+  useEnvironmentPullRequest,
+  useEnvironmentWorkStatus,
+} from "@/hooks/queries/environment-queries";
+import {
+  resolveThreadGitSidebarStatus,
+  type ThreadGitSidebarStatus,
+} from "./threadGitSidebarStatus";
 
 const SIDEBAR_TITLE_DOUBLE_CLICK_MS = 400;
+
+const THREAD_GIT_STATUS_PRESENTATION: Record<
+  ThreadGitSidebarStatus,
+  {
+    icon: "Square" | "FileDiff" | "GitBranch" | "GitMerge";
+    label: string;
+    className: string;
+  }
+> = {
+  clean: {
+    icon: "Square",
+    label: "No code changes pending",
+    className: "text-muted-foreground/55",
+  },
+  uncommitted: {
+    icon: "FileDiff",
+    label: "Code changes not committed",
+    className: "text-foreground/80",
+  },
+  unmerged: {
+    icon: "GitBranch",
+    label: "Commits not merged",
+    className: "text-foreground",
+  },
+  merged: {
+    icon: "GitMerge",
+    label: "Changes merged",
+    className: "text-success-foreground",
+  },
+};
+
+function ThreadGitStatusIndicator({
+  environmentId,
+}: {
+  environmentId: string | null;
+}) {
+  const workspaceQuery = useEnvironmentWorkStatus(environmentId);
+  const pullRequestQuery = useEnvironmentPullRequest(environmentId);
+  const workspace =
+    workspaceQuery.data?.outcome === "available"
+      ? workspaceQuery.data.workspace
+      : null;
+  const pullRequest = getEnvironmentPullRequestFromResponse(
+    pullRequestQuery.data,
+  );
+  const status = resolveThreadGitSidebarStatus({ workspace, pullRequest });
+
+  if (environmentId === null || status === null) {
+    return null;
+  }
+
+  const presentation = THREAD_GIT_STATUS_PRESENTATION[status];
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span
+          data-sidebar-thread-git-status={status}
+          role="img"
+          aria-label={presentation.label}
+          className={cn(
+            "relative z-10 inline-flex size-4 shrink-0 items-center justify-center",
+            presentation.className,
+          )}
+        >
+          <Icon name={presentation.icon} className="size-3.5" aria-hidden />
+        </span>
+      </TooltipTrigger>
+      <TooltipContent side="top">{presentation.label}</TooltipContent>
+    </Tooltip>
+  );
+}
 
 let lastSidebarTitleClick: { at: number; threadId: string } | null = null;
 
@@ -474,6 +555,7 @@ function ThreadRowComponent({
             <ThreadTitleMentions title={threadTitle} />
           </span>
         )}
+        <ThreadGitStatusIndicator environmentId={thread.environmentId} />
         {crossProjectLabel !== null ? (
           <Tooltip>
             <TooltipTrigger asChild>
