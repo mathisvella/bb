@@ -7,6 +7,7 @@ import type { SystemEnvironmentProvider } from "@bb/server-contract";
 import {
   PERSONAL_WORKSPACE_ENVIRONMENT_PROVIDER_ID,
   PROJECT_CHECKOUT_ENVIRONMENT_PROVIDER_ID,
+  GIT_WORKTREE_ENVIRONMENT_PROVIDER_ID,
 } from "@bb/client-core";
 import {
   encodeProviderValue,
@@ -25,6 +26,10 @@ export interface SeededReuseEnvironment {
 interface ResolveRootComposeEffectiveEnvironmentValueArgs {
   environmentSelectionValue: string;
   environmentProviders?: readonly SystemEnvironmentProvider[];
+  environmentProvidersByHostId?: ReadonlyMap<
+    string,
+    readonly SystemEnvironmentProvider[]
+  >;
   isProjectless: boolean;
   knownHostIds: ReadonlySet<string>;
   primaryHostId: string | null;
@@ -210,6 +215,7 @@ function resolveProjectlessEnvironmentValue({
 export function resolveRootComposeEffectiveEnvironmentValue({
   environmentSelectionValue,
   environmentProviders,
+  environmentProvidersByHostId,
   isProjectless,
   knownHostIds,
   primaryHostId,
@@ -245,13 +251,25 @@ export function resolveRootComposeEffectiveEnvironmentValue({
           (provider) => provider.id === parsedSelection.environmentProviderId,
         )
       : undefined;
+  const hostProviders =
+    primaryHostId === null
+      ? []
+      : (environmentProvidersByHostId?.get(primaryHostId) ??
+        environmentProviders);
+  const defaultProviderId = hostProviders.some(
+    (provider) =>
+      provider.id === GIT_WORKTREE_ENVIRONMENT_PROVIDER_ID &&
+      provider.availability?.status !== "unavailable",
+  )
+    ? GIT_WORKTREE_ENVIRONMENT_PROVIDER_ID
+    : PROJECT_CHECKOUT_ENVIRONMENT_PROVIDER_ID;
   const fallbackValue =
     primaryHostId !== null &&
     knownHostIds.has(primaryHostId) &&
     findLocalPathProjectSourceForHost(projectSources, primaryHostId) !==
       undefined &&
-    providerRegistered(PROJECT_CHECKOUT_ENVIRONMENT_PROVIDER_ID)
-      ? encodeProviderValue(PROJECT_CHECKOUT_ENVIRONMENT_PROVIDER_ID)
+    providerRegistered(defaultProviderId)
+      ? encodeProviderValue(defaultProviderId)
       : "";
 
   if (parsedSelection?.type === "reuse") {

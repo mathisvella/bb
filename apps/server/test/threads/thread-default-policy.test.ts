@@ -1,4 +1,12 @@
 import {
+  listEnvironmentProviders,
+  setPluginEnvironmentProviderBridge,
+} from "../../src/services/plugins/plugin-environment-provider-registry.js";
+import { invokePluginInline } from "../../src/services/plugins/plugin-hook-registry.js";
+import {
+  defaultEnvironmentProviderRecords,
+  installFakeEnvironmentProvider,
+  worktreeProviderInputsSchema,
   installFakeGitWorktreeProvider,
   installFakePersonalWorkspaceProvider,
 } from "../helpers/environment-provider.js";
@@ -588,6 +596,80 @@ describe("resolveProjectDefaultThreadEnvironment", () => {
       });
     });
   });
+
+  it.each(["disabled", "unavailable"])(
+    "falls back to the checkout when the worktree plugin is %s",
+    async (state) => {
+      await withTestHarness(async (harness) => {
+        if (state === "unavailable") {
+          installFakeEnvironmentProvider({
+            id: "git-worktree",
+            pluginId: "environment-git-worktree",
+            displayName: "Worktree",
+            requires: {
+              projectCheckout: true,
+              gitCheckout: true,
+              gitRemote: false,
+              projectless: false,
+            },
+            inputs: worktreeProviderInputsSchema,
+            availability: () => ({
+              status: "unavailable",
+              message: "Worktrees are unavailable",
+            }),
+            decide: () => ({ action: "wait", reason: "Creating worktree" }),
+          });
+          const records = [
+            ...listEnvironmentProviders(),
+            ...defaultEnvironmentProviderRecords(),
+          ];
+          setPluginEnvironmentProviderBridge({
+            listEnvironmentProviders: () => records,
+            getEnvironmentProvider: (id) =>
+              records.find((record) => record.provider.id === id),
+            invokeProvider: (_pluginId, _label, run) => invokePluginInline(run),
+            decisionTimeoutMs: 10_000,
+          });
+        }
+        const { host, session } = seedHostSession(harness.deps);
+        seedPrimaryHost(harness.deps, host.id);
+        const { project } = seedProjectWithSource(harness.deps, {
+          hostId: host.id,
+          path: "/tmp/git-without-worktree-plugin",
+        });
+        registerHostRpcResponder(harness, {
+          hostId: host.id,
+          sessionId: session.id,
+          handle: () => ({
+            ok: true,
+            result: {
+              checkout: {
+                kind: "branch" as const,
+                branchName: "main",
+                headSha: "abc123",
+              },
+              defaultBranch: "main",
+              defaultBranchRelation: null,
+              isWorktree: false,
+              hasUncommittedChanges: false,
+              operation: { kind: "none" as const },
+              originDefaultBranch: null,
+            } satisfies GitSourceInspection,
+          }),
+        });
+        await expect(
+          resolveProjectDefaultThreadEnvironment(harness.deps, {
+            projectId: project.id,
+          }),
+        ).resolves.toEqual({
+          type: "provider",
+          environmentProviderId: "project-checkout",
+          machine: { type: "existing", hostId: host.id },
+          inputs: { path: "/tmp/git-without-worktree-plugin" },
+        });
+      });
+    },
+  );
 
   it("uses the project checkout for a non-Git project", async () => {
     await withTestHarness(async (harness) => {

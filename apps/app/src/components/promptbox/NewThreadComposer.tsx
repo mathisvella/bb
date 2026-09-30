@@ -672,7 +672,11 @@ export function NewThreadComposer({
         threads: [],
       },
     ];
-  }, [seededReuseEnvironmentRow, threadDerivedReuseOptions, worktreeHostNameById]);
+  }, [
+    seededReuseEnvironmentRow,
+    threadDerivedReuseOptions,
+    worktreeHostNameById,
+  ]);
   const { value: storedMachineId, setValue: setStoredMachineId } =
     usePromptBoxMachinePreference(projectId);
   const [activeSeedSignature, setActiveSeedSignature] = useState(seedSignature);
@@ -758,6 +762,7 @@ export function NewThreadComposer({
       const effectiveValue = resolveRootComposeEffectiveEnvironmentValue({
         environmentSelectionValue,
         environmentProviders,
+        environmentProvidersByHostId,
         isProjectless,
         knownHostIds,
         primaryHostId,
@@ -779,6 +784,7 @@ export function NewThreadComposer({
     },
     [
       environmentProviders,
+      environmentProvidersByHostId,
       isProjectless,
       knownHostIds,
       primaryHostId,
@@ -943,6 +949,7 @@ export function NewThreadComposer({
       resolveRootComposeEffectiveEnvironmentValue({
         environmentSelectionValue,
         environmentProviders,
+        environmentProvidersByHostId,
         isProjectless,
         knownHostIds,
         primaryHostId,
@@ -954,6 +961,7 @@ export function NewThreadComposer({
     [
       environmentSelectionValue,
       environmentProviders,
+      environmentProvidersByHostId,
       isProjectless,
       knownHostIds,
       primaryHostId,

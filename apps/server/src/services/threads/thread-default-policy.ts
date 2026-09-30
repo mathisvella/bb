@@ -8,6 +8,11 @@ import type {
   Thread,
 } from "@bb/domain";
 import { getEnvironment } from "@bb/db";
+import { resolvePluginEnvironmentProviderAvailability } from "../environments/provider-availability.js";
+import {
+  requirePublicProject,
+  requireNonDestroyedHostWithStatus,
+} from "../lib/entity-lookup.js";
 import { DEFAULT_ENVIRONMENT_PROVIDER_ID } from "../environments/environment-provider-ids.js";
 import { PERSONAL_PROJECT_ID, clampPermissionModeToCeiling } from "@bb/domain";
 import type {
@@ -276,7 +281,24 @@ export async function resolveProjectDefaultThreadEnvironment(
     },
   });
   const baseBranch = resolveDefaultWorktreeBaseBranch(checkout);
-  if (baseBranch === null) {
+  const worktreeProvider = getEnvironmentProvider(
+    DEFAULT_ENVIRONMENT_PROVIDER_ID.gitWorktree,
+  );
+  const availability =
+    baseBranch === null || worktreeProvider === undefined
+      ? null
+      : await resolvePluginEnvironmentProviderAvailability(worktreeProvider, {
+          project: requirePublicProject(deps.db, args.projectId),
+          host: requireNonDestroyedHostWithStatus(deps, hostId),
+          projectCheckout: { path: source.path },
+          gitRemote: requirePublicProject(deps.db, args.projectId).gitRemoteUrl,
+        });
+  if (
+    baseBranch === null ||
+    availability === null ||
+    !availability.ok ||
+    availability.availability.status !== "available"
+  ) {
     return {
       type: "provider",
       environmentProviderId: requireDefaultEnvironmentProvider(

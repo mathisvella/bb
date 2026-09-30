@@ -36,10 +36,20 @@ plugin is running again.
 
 ## Start a thread in a worktree
 
-In the app, pick **Worktree** in the environment picker when starting
-a thread.
+New project threads default to **Worktree** on the primary machine when its
+project source supports Git worktrees. Non-Git sources, repositories without
+commits, and disabled or unavailable worktree providers use **Checkout** instead.
+Projectless threads keep their personal workspace. An explicit environment or
+checkout selection is preserved. Each machine uses its own project source; BB
+does not create worktrees for other repositories or sources on other machines.
 
-From the CLI:
+Worktree provisioning and setup errors remain visible in the provisioning
+transcript; choose **Checkout** explicitly to retry in the project source.
+
+In the app, use the environment picker to change this default.
+
+From the CLI, omitting environment flags uses the same project default.
+The SDK can request `{ type: "project-default" }`. To require a worktree:
 
 ```bash
 pnpm bb thread spawn \
