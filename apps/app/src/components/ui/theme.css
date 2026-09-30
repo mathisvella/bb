@@ -585,8 +585,8 @@
     ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
     "Courier New", monospace;
   --radius: 0.5rem;
-  --bb-sidebar-row-height: 1.5rem;
-  --bb-sidebar-row-height-coarse: 2.5rem;
+  --bb-sidebar-row-height: 1.375rem;
+  --bb-sidebar-row-height-coarse: 2rem;
   --shadow-x: 0px;
   --shadow-y: 2px;
   --shadow-blur: 0px;
