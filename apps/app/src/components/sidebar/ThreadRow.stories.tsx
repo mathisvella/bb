@@ -281,7 +281,10 @@ const childThread = makeThread({
 export function Overview() {
   return (
     <StoryCard>
-      <StoryRow label="idle" hint="quiet thread, title then trailing slot">
+      <StoryRow
+        label="idle"
+        hint="quiet thread, leading idle circle, then title"
+      >
         <SidebarStage>
           <StoryThreadRow
             projectId="proj_demo"
@@ -344,7 +347,7 @@ export function Overview() {
       </StoryRow>
       <StoryRow
         label="busy"
-        hint="runtime is active - far-right reserved slot shows the Loading03 working spinner"
+        hint="runtime is active - leading status slot shows the Loading03 working spinner"
       >
         <SidebarStage>
           <StoryThreadRow
@@ -364,7 +367,7 @@ export function Overview() {
       </StoryRow>
       <StoryRow
         label="active workflow"
-        hint="runtime is idle, background workflow is active - far-right reserved slot shows the animated workflow glyph"
+        hint="runtime is idle, background workflow is active - leading status slot shows the animated workflow glyph"
       >
         <SidebarStage>
           <WorkflowActiveThreadRow />
@@ -372,7 +375,7 @@ export function Overview() {
       </StoryRow>
       <StoryRow
         label="active background agent"
-        hint="background agent is active - far-right reserved slot shows the animated delegated-agent glyph"
+        hint="background agent is active - leading status slot shows the animated delegated-agent glyph"
       >
         <SidebarStage>
           <BackgroundAgentActiveThreadRow />
@@ -380,7 +383,7 @@ export function Overview() {
       </StoryRow>
       <StoryRow
         label="active background command"
-        hint="background shell command is active - far-right reserved slot shows the animated terminal glyph"
+        hint="background shell command is active - leading status slot shows the animated terminal glyph"
       >
         <SidebarStage>
           <BackgroundCommandActiveThreadRow />
@@ -388,7 +391,7 @@ export function Overview() {
       </StoryRow>
       <StoryRow
         label="active plan mode"
-        hint="plan-mode banner is active - far-right reserved slot shows the animated plan glyph"
+        hint="plan-mode banner is active - leading status slot shows the animated plan glyph"
       >
         <SidebarStage>
           <PlanModeActiveThreadRow />
@@ -396,7 +399,7 @@ export function Overview() {
       </StoryRow>
       <StoryRow
         label="active goal"
-        hint="goal banner is active - far-right reserved slot shows the animated target glyph"
+        hint="goal banner is active - leading status slot shows the animated target glyph"
       >
         <SidebarStage>
           <GoalActiveThreadRow />
@@ -441,7 +444,7 @@ export function Overview() {
       </StoryRow>
       <StoryRow
         label="unread error"
-        hint="status=error and unread - far-right reserved slot shows the destructive failure icon"
+        hint="status=error and unread - leading status slot shows the destructive failure icon"
       >
         <SidebarStage>
           <StoryThreadRow
@@ -459,7 +462,7 @@ export function Overview() {
       </StoryRow>
       <StoryRow
         label="draft"
-        hint="unsubmitted follow-up draft — pencil sits flush right in the reserved status slot"
+        hint="unsubmitted follow-up draft — pencil sits in the leading status slot"
       >
         <SidebarStage>
           <StoryThreadRow
@@ -523,7 +526,7 @@ export function Overview() {
       </StoryRow>
       <StoryRow
         label="draft + unread"
-        hint="the persistent draft pencil owns the trailing slot instead of the unread dot"
+        hint="the persistent draft pencil owns the leading slot instead of the unread dot"
       >
         <SidebarStage>
           <StoryThreadRow
@@ -580,7 +583,7 @@ export function Overview() {
       </StoryRow>
       <StoryRow
         label="long title + draft"
-        hint="title truncates before the right-aligned draft icon"
+        hint="leading draft icon stays visible while the title truncates"
       >
         <SidebarStage>
           <StoryThreadRow
@@ -691,7 +694,7 @@ export function Overview() {
       </StoryRow>
       <StoryRow
         label="parent, collapsed — child working"
-        hint="trailing slot shows the Loading03 working spinner when a hidden child is working"
+        hint="leading slot shows the Loading03 working spinner when a hidden child is working"
       >
         <SidebarStage>
           <StoryThreadRow
@@ -709,7 +712,7 @@ export function Overview() {
       </StoryRow>
       <StoryRow
         label="parent, collapsed — child needs input"
-        hint="trailing slot shows the grey question icon when a hidden child is blocked on the user"
+        hint="leading slot shows the grey question icon when a hidden child is blocked on the user"
       >
         <SidebarStage>
           <StoryThreadRow
@@ -727,7 +730,7 @@ export function Overview() {
       </StoryRow>
       <StoryRow
         label="parent, collapsed — needs input + working"
-        hint="input needed wins priority over working: the trailing slot shows the grey question icon, not the spinner"
+        hint="input needed wins priority over working: the leading slot shows the grey question icon, not the spinner"
       >
         <SidebarStage>
           <StoryThreadRow
@@ -748,7 +751,7 @@ export function Overview() {
       </StoryRow>
       <StoryRow
         label="child, busy"
-        hint="far-right reserved slot shows the Loading03 working spinner"
+        hint="leading status slot shows the Loading03 working spinner"
       >
         <SidebarStage>
           <StoryThreadRow
@@ -769,7 +772,7 @@ export function Overview() {
       </StoryRow>
       <StoryRow
         label="child, pending"
-        hint="far-right reserved slot shows the grey question icon"
+        hint="leading status slot shows the grey question icon"
       >
         <SidebarStage>
           <StoryThreadRow
@@ -892,5 +895,64 @@ export function SplitViewStatus() {
         </StoryRow>
       </StoryCard>
     </Provider>
+  );
+}
+
+export function CompactSessionList() {
+  const sessions = [
+    makeThread({
+      id: "thr_compact_idle",
+      title: "Clarifier les analytics",
+      lastReadAt: 200,
+      latestAttentionAt: 200,
+    }),
+    makeThread({
+      id: "thr_compact_running",
+      title: "Corriger les incohérences du dashboard",
+      status: "active",
+      runtime: { displayStatus: "active", hostReconnectGraceExpiresAt: null },
+    }),
+    makeThread({
+      id: "thr_compact_unread",
+      title: "Notify active project members",
+      lastReadAt: 50,
+      latestAttentionAt: 200,
+    }),
+    makeThread({
+      id: "thr_compact_pending",
+      title: "Ajouter un nouveau design d’email",
+      hasPendingInteraction: true,
+    }),
+    makeThread({
+      id: "thr_compact_error",
+      title: "Corriger la connexion Apple Messages",
+      status: "error",
+      lastReadAt: 50,
+      latestAttentionAt: 200,
+    }),
+    makeThread({
+      id: "thr_compact_long",
+      title:
+        "Compléter le traitement des informations et vérifier les détails du projet",
+      lastReadAt: 200,
+      latestAttentionAt: 200,
+    }),
+  ];
+  return (
+    <div className="w-full max-w-sm p-3">
+      <SidebarStage>
+        <div className="px-2 pb-2 text-xs text-muted-foreground">heep</div>
+        {sessions.map((thread) => (
+          <StoryThreadRow
+            key={thread.id}
+            projectId="proj_demo"
+            crossProjectId={null}
+            thread={thread}
+            isActive={thread.id === "thr_compact_running"}
+            options={{ kind: "default", depth: 0, isCompact: false }}
+          />
+        ))}
+      </SidebarStage>
+    </div>
   );
 }

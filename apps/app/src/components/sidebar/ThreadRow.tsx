@@ -97,25 +97,25 @@ const SIDEBAR_TITLE_DOUBLE_CLICK_MS = 400;
 const THREAD_GIT_STATUS_PRESENTATION: Record<
   ThreadGitSidebarStatus,
   {
-    icon: "Square" | "FileDiff" | "GitBranch" | "GitMerge";
+    icon: "Circle" | "FileDiff" | "GitBranch" | "GitMerge";
     label: string;
     className: string;
   }
 > = {
   clean: {
-    icon: "Square",
+    icon: "Circle",
     label: "No code changes pending",
     className: "text-muted-foreground/55",
   },
   uncommitted: {
     icon: "FileDiff",
     label: "Code changes not committed",
-    className: "text-foreground/80",
+    className: "text-timeline-accent",
   },
   unmerged: {
     icon: "GitBranch",
     label: "Commits not merged",
-    className: "text-foreground",
+    className: "text-timeline-accent",
   },
   merged: {
     icon: "GitMerge",
@@ -148,7 +148,13 @@ function ThreadGitStatusIndicator({
   const status = resolveThreadGitSidebarStatus({ workspace, pullRequest });
 
   if (!shouldShowGitStatus || environmentId === null || status === null) {
-    return null;
+    return (
+      <Icon
+        name="Circle"
+        className="size-2 text-muted-foreground/45"
+        aria-label="No session activity"
+      />
+    );
   }
 
   const presentation = THREAD_GIT_STATUS_PRESENTATION[status];
@@ -164,7 +170,11 @@ function ThreadGitStatusIndicator({
             presentation.className,
           )}
         >
-          <Icon name={presentation.icon} className="size-3.5" aria-hidden />
+          <Icon
+            name={presentation.icon}
+            className={status === "clean" ? "size-2" : "size-3.5"}
+            aria-hidden
+          />
         </span>
       </TooltipTrigger>
       <TooltipContent side="top">{presentation.label}</TooltipContent>
@@ -321,32 +331,51 @@ export function CollapsedThreadStatusGlyph({
   };
   return <ThreadStatusGlyph {...statusProps} pluginStatus={pluginStatus} />;
 }
-type ThreadTrailingIndicatorProps = ThreadStatusGlyphProps & {
+type ThreadLeadingIndicatorProps = ThreadStatusGlyphProps & {
   pluginStatus: PluginComposerThreadRowStatus | null;
+  environmentId: string | null;
+  environmentIsWorktree: boolean | null;
 };
 
-function ThreadTrailingIndicator({
+function ThreadLeadingIndicator({
   pluginStatus,
+  environmentId,
+  environmentIsWorktree,
   ...statusProps
-}: ThreadTrailingIndicatorProps) {
+}: ThreadLeadingIndicatorProps) {
   const { indicatorKind, pluginStatusIsVisible } = resolveThreadStatus(
     statusProps,
     pluginStatus,
   );
 
-  if (indicatorKind === "none" && !pluginStatusIsVisible) {
-    return null;
-  }
+  const showActivity = indicatorKind !== "none" || pluginStatusIsVisible;
 
   return (
     <span
-      data-sidebar-thread-trailing-indicator=""
+      data-sidebar-thread-leading-indicator=""
       className={cn(
         SIDEBAR_ROW_GLYPH_SLOT_CLASS,
         SIDEBAR_STATUS_GLYPH_BOX_CLASS,
       )}
     >
-      <ThreadStatusGlyph {...statusProps} pluginStatus={pluginStatus} />
+      {showActivity ? (
+        <ThreadStatusGlyph
+          {...statusProps}
+          pluginStatus={pluginStatus}
+          size="compact"
+        />
+      ) : environmentIsWorktree === true && environmentId !== null ? (
+        <ThreadGitStatusIndicator
+          environmentId={environmentId}
+          environmentIsWorktree={environmentIsWorktree}
+        />
+      ) : (
+        <Icon
+          name="Circle"
+          className="size-2 text-muted-foreground/45"
+          aria-label="No session activity"
+        />
+      )}
     </span>
   );
 }
@@ -420,7 +449,7 @@ function ThreadRowComponent({
     parentOptions?.childActivity ?? NO_COLLAPSED_CHILD_ACTIVITY;
   const hasChildren = childCount > 0;
   const hasHiddenChildren = isParentRow && isParentCollapsed && hasChildren;
-  const trailingIndicatorState: ThreadListIndicatorState = {
+  const leadingIndicatorState: ThreadListIndicatorState = {
     hasPendingInteraction:
       threadStatus.hasPendingInteraction ||
       (hasHiddenChildren && childActivity.pending),
@@ -452,17 +481,17 @@ function ThreadRowComponent({
       threadStatus.isWorkflowActive ||
       (hasHiddenChildren && childActivity.workflow),
   };
-  const trailingIndicatorResolution = resolveThreadStatus(
-    trailingIndicatorState,
+  const leadingIndicatorResolution = resolveThreadStatus(
+    leadingIndicatorState,
     pluginThreadRowStatus,
   );
-  const trailingIndicatorKind = trailingIndicatorResolution.indicatorKind;
+  const leadingIndicatorKind = leadingIndicatorResolution.indicatorKind;
   const splitIndicatorIsWorking = hasThreadListWorkingActivity(
-    trailingIndicatorState,
+    leadingIndicatorState,
     pluginThreadRowStatus?.tone === "running",
   );
-  const splitIndicatorLabel = trailingIndicatorResolution.accessibleLabel
-    ? `${labelTitle} — open in split; ${trailingIndicatorResolution.accessibleLabel}`
+  const splitIndicatorLabel = leadingIndicatorResolution.accessibleLabel
+    ? `${labelTitle} — open in split; ${leadingIndicatorResolution.accessibleLabel}`
     : `${labelTitle} — open in split`;
   const linkLabel = hasComposerDraft
     ? `Open ${labelTitle} (unsubmitted draft)`
@@ -481,7 +510,7 @@ function ThreadRowComponent({
     LIST_HOVER_TRANSITION,
     parentOptions?.stickyLevel === undefined && "relative",
     options.isCompact
-      ? COARSE_POINTER_COMPACT_ROW_HEIGHT_CLASS
+      ? "h-5 max-md:pointer-coarse:h-7"
       : COARSE_POINTER_ROW_HEIGHT_CLASS,
     showActive
       ? SIDEBAR_ROW_SELECTED_STATE_CLASS
@@ -549,6 +578,15 @@ function ThreadRowComponent({
               : SIDEBAR_HOVER_ACTIONS_INSET_CLASS),
         )}
       >
+        <ThreadLeadingIndicator
+          {...leadingIndicatorState}
+          hideIdleDraftLabel={
+            !hasHiddenChildren && leadingIndicatorKind === "draft"
+          }
+          pluginStatus={pluginThreadRowStatus}
+          environmentId={thread.environmentId}
+          environmentIsWorktree={thread.environmentIsWorktree}
+        />
         {isEditing ? (
           <span className="relative z-10 min-w-0 flex-1 overflow-visible">
             {editor}
@@ -562,10 +600,6 @@ function ThreadRowComponent({
             <ThreadTitleMentions title={threadTitle} />
           </span>
         )}
-        <ThreadGitStatusIndicator
-          environmentId={thread.environmentId}
-          environmentIsWorktree={thread.environmentIsWorktree}
-        />
         {crossProjectLabel !== null ? (
           <Tooltip>
             <TooltipTrigger asChild>
@@ -635,15 +669,7 @@ function ThreadRowComponent({
                       isWorking={splitIndicatorIsWorking}
                     />
                   </span>
-                ) : (
-                  <ThreadTrailingIndicator
-                    {...trailingIndicatorState}
-                    hideIdleDraftLabel={
-                      !hasHiddenChildren && trailingIndicatorKind === "draft"
-                    }
-                    pluginStatus={pluginThreadRowStatus}
-                  />
-                )}
+                ) : null}
               </span>
               <div
                 data-sidebar-hover-actions-open={

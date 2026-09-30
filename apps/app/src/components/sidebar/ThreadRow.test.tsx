@@ -1,5 +1,10 @@
 // @vitest-environment jsdom
 
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  makeWorkspaceStatus,
+  makeWorkspaceWorkingTree,
+} from "@bb/test-helpers";
 import {
   act,
   cleanup,
@@ -229,6 +234,79 @@ afterEach(() => {
 });
 
 describe("ThreadRow", () => {
+  it("keeps an idle marker before the title without probing a shared checkout", () => {
+    const statusSpy = vi.spyOn(sdk.environments, "status");
+    try {
+      const { container } = renderThreadRow({
+        thread: createThread({
+          lastReadAt: 1,
+          latestAttentionAt: 1,
+          environmentId: "env_shared",
+          environmentIsWorktree: false,
+        }),
+      });
+      const marker = screen.getByLabelText("No session activity");
+      expect(
+        marker.closest("[data-sidebar-thread-leading-indicator]"),
+      ).not.toBeNull();
+      const title = container.querySelector(".bb-thread-title");
+      expect(title).not.toBeNull();
+      expect(marker.compareDocumentPosition(title!)).toBe(
+        Node.DOCUMENT_POSITION_FOLLOWING,
+      );
+      expect(statusSpy).not.toHaveBeenCalled();
+    } finally {
+      statusSpy.mockRestore();
+    }
+  });
+
+  it("shows worktree Git changes before the title", async () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const statusSpy = vi.spyOn(sdk.environments, "status").mockResolvedValue({
+      outcome: "available",
+      workspace: makeWorkspaceStatus({
+        workingTree: makeWorkspaceWorkingTree({
+          state: "dirty_uncommitted",
+          hasUncommittedChanges: true,
+        }),
+      }),
+    });
+    const prSpy = vi
+      .spyOn(sdk.environments, "pullRequest")
+      .mockResolvedValue({ outcome: "absent" });
+    try {
+      const { container } = render(
+        <QueryClientProvider client={client}>
+          <ThreadRowTestHarness
+            thread={createThread({
+              lastReadAt: 1,
+              latestAttentionAt: 1,
+              environmentId: "env_worktree",
+              environmentIsWorktree: true,
+            })}
+          />
+        </QueryClientProvider>,
+      );
+      const marker = await screen.findByLabelText("Code changes not committed");
+      expect(
+        marker.closest("[data-sidebar-thread-leading-indicator]"),
+      ).not.toBeNull();
+      expect(
+        marker.compareDocumentPosition(
+          container.querySelector(".bb-thread-title")!,
+        ),
+      ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+      expect(statusSpy).toHaveBeenCalled();
+    } finally {
+      cleanup();
+      client.clear();
+      statusSpy.mockRestore();
+      prSpy.mockRestore();
+    }
+  });
+
   const splitWorkingCases: Array<{
     label: string;
     pluginStatus?: PluginComposerThreadRowStatus;
@@ -395,7 +473,7 @@ describe("ThreadRow", () => {
     },
   );
 
-  it("puts the draft icon in the trailing status slot", () => {
+  it("puts the draft icon in the leading status slot", () => {
     const { container } = renderThreadRow({
       hasComposerDraft: true,
       thread: createThread({ lastReadAt: 1, latestAttentionAt: 1 }),
@@ -404,7 +482,7 @@ describe("ThreadRow", () => {
     const draftIcon = container.querySelector('[data-icon="Edit"]');
     expect(draftIcon).not.toBeNull();
     expect(
-      draftIcon?.closest("[data-sidebar-thread-trailing-indicator]"),
+      draftIcon?.closest("[data-sidebar-thread-leading-indicator]"),
     ).not.toBeNull();
     expect(
       screen.getByRole("link", { name: "Open Thread (unsubmitted draft)" }),
@@ -476,7 +554,7 @@ describe("ThreadRow", () => {
     expect(container.querySelector('[data-icon="Edit"]')).not.toBeNull();
   });
 
-  it("shows a keyboard shortcut in place of a plugin status", () => {
+  it("keeps the leading plugin status alongside a keyboard shortcut", () => {
     setPluginThreadRowStatus("thr_test", "composer-status-test", {
       icon: "AiContentGenerator01",
       label: "Plugin improving draft",
@@ -485,7 +563,7 @@ describe("ThreadRow", () => {
     renderThreadRow({ shortcutKey: "3" });
 
     expect(screen.getByText("⌘3")).not.toBeNull();
-    expect(screen.queryByLabelText("Plugin improving draft")).toBeNull();
+    expect(screen.getByLabelText("Plugin improving draft")).not.toBeNull();
   });
 
   it("shows a keyboard shortcut in place of a split mini-map", () => {
@@ -567,7 +645,7 @@ describe("ThreadRow", () => {
     expect(Array.from(runningIcon.classList)).toContain("animate-spin");
     expect(screen.queryByLabelText("Plugin improving draft")).toBeNull();
     expect(
-      container.querySelector("[data-sidebar-thread-trailing-indicator]"),
+      container.querySelector("[data-sidebar-thread-leading-indicator]"),
     ).not.toBeNull();
   });
 
@@ -1069,7 +1147,7 @@ describe("ThreadRow", () => {
     },
   );
 
-  it("shows its Command shortcut in place of an active indicator", () => {
+  it("keeps the leading activity indicator alongside its Command shortcut", () => {
     renderThreadRow({
       shortcutKey: "3",
       thread: createThread({
@@ -1085,7 +1163,7 @@ describe("ThreadRow", () => {
     expect(shortcut.className).toContain("px-1.5");
     expect(shortcut.className).toContain("py-1");
     expect(shortcut.className).toContain("opacity-60");
-    expect(screen.queryByLabelText("Thread working")).toBeNull();
+    expect(screen.getByLabelText("Thread working")).not.toBeNull();
     expect(
       screen
         .getByRole("link", { name: "Open Thread" })
