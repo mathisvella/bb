@@ -821,7 +821,7 @@ describe("PluginNewThreadComposer seeding", () => {
       latestPromptBoxProps().modeConfig.environment.onSelectHost("host_2");
     });
     expect(latestPromptBoxProps().modeConfig.environment.value).toBe(
-      "provider:project-checkout",
+      "provider:git-worktree",
     );
     expect(
       latestPromptBoxProps().modeConfig.environment.selectedProviderHostId,
@@ -1261,7 +1261,7 @@ describe("PluginNewThreadComposer seeding", () => {
       permissionMode: "auto",
       environment: {
         type: "provider",
-        environmentProviderId: "project-checkout",
+        environmentProviderId: "git-worktree",
         inputs: {},
       },
     });

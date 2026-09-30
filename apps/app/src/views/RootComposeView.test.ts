@@ -825,12 +825,63 @@ describe("resolveRootComposeEffectiveEnvironmentValue", () => {
   const checkoutProvider = makeProjectProvider("project-checkout");
   const worktreeProvider = makeProjectProvider("git-worktree");
 
-  it("falls back to the checkout on the primary host for a project with a source there", () => {
+  it("defaults to a worktree on the primary host for a project with a source there", () => {
     expect(
       resolveRootComposeEffectiveEnvironmentValue({
         seededReuseEnvironment: null,
         knownHostIds: new Set(["host_1"]),
         environmentSelectionValue: "",
+        environmentProviders: [checkoutProvider, worktreeProvider],
+        isProjectless: false,
+        primaryHostId: "host_1",
+        projectSources: [makeProjectSource("host_1")],
+        reuseThreadOptions: [],
+        reuseThreadOptionsLoading: false,
+      }),
+    ).toBe("provider:git-worktree");
+  });
+
+  it("uses the checkout when worktrees are unavailable on the primary machine", () => {
+    expect(
+      resolveRootComposeEffectiveEnvironmentValue({
+        seededReuseEnvironment: null,
+        knownHostIds: new Set(["host_1", "host_2"]),
+        environmentSelectionValue: "",
+        environmentProviders: [checkoutProvider, worktreeProvider],
+        environmentProvidersByHostId: new Map([
+          [
+            "host_1",
+            [
+              checkoutProvider,
+              {
+                ...worktreeProvider,
+                availability: {
+                  status: "unavailable",
+                  message: "No usable Git branch",
+                },
+              },
+            ],
+          ],
+          ["host_2", [checkoutProvider, worktreeProvider]],
+        ]),
+        isProjectless: false,
+        primaryHostId: "host_1",
+        projectSources: [
+          makeProjectSource("host_1"),
+          makeProjectSource("host_2"),
+        ],
+        reuseThreadOptions: [],
+        reuseThreadOptionsLoading: false,
+      }),
+    ).toBe("provider:project-checkout");
+  });
+
+  it("preserves an explicit checkout selection when worktrees are available", () => {
+    expect(
+      resolveRootComposeEffectiveEnvironmentValue({
+        seededReuseEnvironment: null,
+        knownHostIds: new Set(["host_1"]),
+        environmentSelectionValue: "provider:project-checkout",
         environmentProviders: [checkoutProvider, worktreeProvider],
         isProjectless: false,
         primaryHostId: "host_1",
@@ -895,7 +946,7 @@ describe("resolveRootComposeEffectiveEnvironmentValue", () => {
         ...args,
         environmentSelectionValue: "provider:gone",
       }),
-    ).toBe("provider:project-checkout");
+    ).toBe("provider:git-worktree");
   });
 
   it("keeps a reuse environment only when it belongs to the selected project", () => {

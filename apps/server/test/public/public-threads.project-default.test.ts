@@ -95,6 +95,46 @@ describe("project-default thread environment", () => {
     });
   });
 
+  it("requests a fresh worktree for each new session instead of reusing the source", async () => {
+    await withTestHarness(async (harness) => {
+      const provider = installFakeGitWorktreeProvider();
+      const { host } = seedHostSession(harness.deps);
+      seedPrimaryHost(harness.deps, host.id);
+      const { project } = seedProjectWithSource(harness.deps, {
+        hostId: host.id,
+        path: "/tmp/parallel-default-source",
+      });
+      const first = await createAndCaptureIntent(harness, {
+        projectId: project.id,
+        environment: { type: "project-default" },
+      });
+      const second = await createAndCaptureIntent(harness, {
+        projectId: project.id,
+        environment: { type: "project-default" },
+      });
+      expect(first.threadId).not.toBe(second.threadId);
+      expect(first.intent).toMatchObject({
+        type: "provider",
+        environmentProviderId: "git-worktree",
+      });
+      expect(second.intent).toEqual(first.intent);
+      await vi.waitFor(() => {
+        const sessions = new Map(
+          provider.contexts.map((context) => [context.thread.id, context]),
+        );
+        expect([...sessions.keys()]).toEqual(
+          expect.arrayContaining([first.threadId, second.threadId]),
+        );
+        for (const context of sessions.values()) {
+          expect(context.environment).toBeNull();
+          expect(context.projectCheckout?.path).toBe(
+            "/tmp/parallel-default-source",
+          );
+        }
+      });
+    });
+  });
+
   it("passes an explicit managed-worktree default through to the worktree provider unresolved", async () => {
     await withTestHarness(async (harness) => {
       installFakeGitWorktreeProvider();
