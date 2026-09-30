@@ -266,7 +266,7 @@ export function TopLevelSidebarSection({
       </SidebarStickyTier>
       {(collapseControl?.isCollapsed && !showChildrenWhenCollapsed) ||
       children == null ? null : (
-        <div className={childrenInset ? "mt-1" : undefined}>{children}</div>
+        <div className={childrenInset ? "mt-0.5" : undefined}>{children}</div>
       )}
     </SidebarStickyGroup>
   );
