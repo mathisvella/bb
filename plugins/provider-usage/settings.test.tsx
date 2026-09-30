@@ -107,7 +107,7 @@ it("uses machine usage when the pool is disabled", async () => {
   });
 });
 
-it("keeps an enabled empty pool selected without fetching machine quotas", async () => {
+it("selects machine accounts when the enabled pool is empty", async () => {
   const app = await loadPluginApp(() => import("./app"));
   const slot = renderSlot(
     app.settingsSections[0]!,
@@ -123,9 +123,13 @@ it("keeps an enabled empty pool selected without fetching machine quotas", async
       },
     },
   );
-  await slot.findByText(/No accounts report usage yet/);
-  expect(slot.rpcCalls).toHaveLength(1);
-  expect(slot.queryByText("local@example.com")).toBeNull();
+  await slot.findByText("local@example.com");
+  await waitFor(() => expect(slot.rpcCalls).toHaveLength(2));
+  expect(slot.rpcCalls[1]?.input).toMatchObject({
+    machineIds: ["host"],
+    providerId: "codex",
+  });
+  expect(slot.queryByText(/No accounts report usage yet/)).toBeNull();
 });
 
 it("renders loading and a friendly transport error without exposing raw errors", async () => {

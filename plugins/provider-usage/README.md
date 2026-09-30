@@ -2,7 +2,7 @@
 
 Shows usage from enabled usage-source plugins in the sidebar. Provider tabs
 use provider names and icons, with pooled accounts stacked under each provider.
-The card lists account metadata cheaply, then fetches only the selected provider’s accounts. Unopened tabs have no quota badge until measured. Shared sources such as Account Pooler are selected by default; an explicit
+The card lists account metadata cheaply, then fetches only the selected provider’s accounts. Unopened tabs have no quota badge until measured. Shared sources such as Account Pooler are selected by default when they contain accounts; empty pools remain selectable and otherwise yield to machine usage; an explicit
 machine selection shows that machine’s local usage instead.
 
 An unconfigured shared source remains selectable and shows setup guidance.

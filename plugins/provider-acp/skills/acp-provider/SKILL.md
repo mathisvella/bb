@@ -21,3 +21,19 @@ models selectable through BB's model field.
 OpenCode ACP supports the core `bb thread compact` command; Cursor ACP does not
 expose compatible compaction. Check the actual agent's capabilities before
 attempting provider-specific recovery.
+
+Custom ACP agents expose usage automatically when their launch command is
+`claude-agent-acp` with an explicit `CLAUDE_CONFIG_DIR`, or `opencode` with
+`OPENCODE_CONFIG_CONTENT` restricting `enabled_providers` to `["openrouter"]`.
+An explicit `providerUsage: false` opts out. Unrelated custom agents retain their
+existing behavior. This applies to the usage UI, `bb settings usage --json`, and
+`bb.sdk.system.usageLimits()` as well as the plugin usage-source RPCs.
+
+Claude usage reads only the specified profile's `.credentials.json` and
+`.claude.json`; it never falls back to the primary account. OpenRouter usage reads
+OpenCode's `auth.json` under `XDG_DATA_HOME/opencode` or
+`~/.local/share/opencode`, with `OPENROUTER_API_KEY` as a fallback, using the launch
+environment over the host environment. It reports API-key spend and remaining
+key budget, not all organization credits. With no key limit, spend remains visible
+without a fabricated quota percentage. Tokens and upstream error bodies never
+appear in usage output. Account Pooler is not required for these agents.
