@@ -219,6 +219,45 @@ const EMPTY_PROJECTS: readonly ProjectResponse[] = [];
 const EMPTY_THREAD_LIST: ThreadListEntry[] = [];
 const EMPTY_SECTION_DEFINITIONS: readonly ThreadSectionResponse[] = [];
 
+interface RelatedProjectPresentation {
+  displayName: string;
+  isChild: boolean;
+}
+
+function buildRelatedProjectPresentation(
+  projects: readonly ProjectResponse[],
+): ReadonlyMap<string, RelatedProjectPresentation> {
+  const presentation = new Map<string, RelatedProjectPresentation>();
+  for (const project of projects) {
+    let parent: ProjectResponse | null = null;
+    for (const candidate of projects) {
+      if (candidate.id === project.id || candidate.name.length >= project.name.length) {
+        continue;
+      }
+      const remainder = project.name.slice(candidate.name.length);
+      if (!/^(?:\\s+|\\s*[-/:]\\s*)\\S/u.test(remainder)) {
+        continue;
+      }
+      if (parent === null || candidate.name.length > parent.name.length) {
+        parent = candidate;
+      }
+    }
+    if (parent === null) {
+      presentation.set(project.id, { displayName: project.name, isChild: false });
+      continue;
+    }
+    const displayName = project.name
+      .slice(parent.name.length)
+      .replace(/^\\s*[-/:]?\\s*/u, "")
+      .trim();
+    presentation.set(project.id, {
+      displayName: displayName.length > 0 ? displayName : project.name,
+      isChild: true,
+    });
+  }
+  return presentation;
+}
+
 function getProjectThreadListState({
   status,
   threads,
@@ -766,6 +805,10 @@ function ProjectModeSections({
       threadsByProject,
     ],
   );
+  const relatedProjectPresentation = useMemo(
+    () => buildRelatedProjectPresentation(projects),
+    [projects],
+  );
   const projectSectionIds = useMemo(
     () =>
       projectRows.map((row) =>
@@ -923,6 +966,12 @@ function ProjectModeSections({
             onToggleEnvironmentCollapsed={onToggleEnvironmentCollapsed}
             reorderDisabled={reorderDisabled}
             consumeProjectClickSuppression={consumeClickSuppression}
+            relatedProjectDisplayName={
+              relatedProjectPresentation.get(row.project.id)?.displayName
+            }
+            isRelatedProjectChild={
+              relatedProjectPresentation.get(row.project.id)?.isChild ?? false
+            }
           />
         );
       }}
