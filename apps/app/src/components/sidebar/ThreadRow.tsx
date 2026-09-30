@@ -126,11 +126,18 @@ const THREAD_GIT_STATUS_PRESENTATION: Record<
 
 function ThreadGitStatusIndicator({
   environmentId,
+  environmentIsWorktree,
 }: {
   environmentId: string | null;
+  environmentIsWorktree: boolean | null;
 }) {
-  const workspaceQuery = useEnvironmentWorkStatus(environmentId);
-  const pullRequestQuery = useEnvironmentPullRequest(environmentId);
+  const shouldShowGitStatus = environmentIsWorktree === true;
+  const workspaceQuery = useEnvironmentWorkStatus(environmentId, undefined, {
+    enabled: shouldShowGitStatus,
+  });
+  const pullRequestQuery = useEnvironmentPullRequest(environmentId, {
+    enabled: shouldShowGitStatus,
+  });
   const workspace =
     workspaceQuery.data?.outcome === "available"
       ? workspaceQuery.data.workspace
@@ -140,7 +147,7 @@ function ThreadGitStatusIndicator({
   );
   const status = resolveThreadGitSidebarStatus({ workspace, pullRequest });
 
-  if (environmentId === null || status === null) {
+  if (!shouldShowGitStatus || environmentId === null || status === null) {
     return null;
   }
 
@@ -555,7 +562,10 @@ function ThreadRowComponent({
             <ThreadTitleMentions title={threadTitle} />
           </span>
         )}
-        <ThreadGitStatusIndicator environmentId={thread.environmentId} />
+        <ThreadGitStatusIndicator
+          environmentId={thread.environmentId}
+          environmentIsWorktree={thread.environmentIsWorktree}
+        />
         {crossProjectLabel !== null ? (
           <Tooltip>
             <TooltipTrigger asChild>
