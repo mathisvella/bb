@@ -224,14 +224,19 @@ interface RelatedProjectPresentation {
   isChild: boolean;
 }
 
-function buildRelatedProjectPresentation(
-  projects: readonly ProjectResponse[],
+type RelatedProjectCandidate = Pick<ProjectResponse, "id" | "name">;
+
+export function buildRelatedProjectPresentation(
+  projects: readonly RelatedProjectCandidate[],
 ): ReadonlyMap<string, RelatedProjectPresentation> {
   const presentation = new Map<string, RelatedProjectPresentation>();
   for (const project of projects) {
-    let parent: ProjectResponse | null = null;
+    let parent: RelatedProjectCandidate | null = null;
     for (const candidate of projects) {
-      if (candidate.id === project.id || candidate.name.length >= project.name.length) {
+      if (
+        candidate.id === project.id ||
+        candidate.name.length >= project.name.length
+      ) {
         continue;
       }
       const remainder = project.name.slice(candidate.name.length);
