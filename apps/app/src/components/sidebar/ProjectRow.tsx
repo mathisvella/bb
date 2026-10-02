@@ -215,6 +215,7 @@ interface ProjectThreadTreeProps {
   rootItems?: readonly ProjectThreadItem[];
   threadListState: ProjectThreadListState;
   progressiveDisclosureEnabled: boolean;
+  initialItemLimit?: number;
   compareThreads: ThreadComparator;
   selectedThreadId?: string;
   collapsedThreadIds: Set<string>;
@@ -1944,6 +1945,7 @@ function SectionThreadTreeItems({
 }
 
 const THREAD_ITEMS_INITIAL_LIMIT = 5;
+const PROJECT_THREAD_ITEMS_INITIAL_LIMIT = 7;
 const THREAD_ITEMS_EXPAND_SIZE = 10;
 const THREAD_DISCLOSURE_CONTROL_CLASS = cn(
   "cursor-pointer rounded-sm pr-2 text-left text-sm font-normal text-subtle-foreground/70 outline-none transition-colors hover:text-subtle-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring",
@@ -1969,6 +1971,7 @@ export const ProjectThreadTree = memo(function ProjectThreadTree({
   rootItems: providedRootItems,
   threadListState,
   progressiveDisclosureEnabled,
+  initialItemLimit,
   compareThreads,
   selectedThreadId,
   collapsedThreadIds,
@@ -2018,12 +2021,15 @@ export const ProjectThreadTree = memo(function ProjectThreadTree({
     ],
   );
   const rootItems = useMemo(() => {
-    if (!progressiveDisclosureEnabled) {
+    const limit =
+      initialItemLimit ??
+      (progressiveDisclosureEnabled ? THREAD_ITEMS_INITIAL_LIMIT : null);
+    if (limit === null) {
       return allRootItems;
     }
     return allRootItems.filter(
       (item, index) =>
-        index < THREAD_ITEMS_INITIAL_LIMIT ||
+        index < limit ||
         revealedItemKeys.has(getSidebarItemKey(item)) ||
         isAttentionProjectThreadItem(item, selectedThreadId),
     );
@@ -2032,6 +2038,7 @@ export const ProjectThreadTree = memo(function ProjectThreadTree({
     selectedThreadId,
     revealedItemKeys,
     progressiveDisclosureEnabled,
+    initialItemLimit,
   ]);
   const visibleItemKeys = new Set(rootItems.map(getSidebarItemKey));
   const hiddenItems = allRootItems.filter(
@@ -2475,6 +2482,7 @@ function ProjectRowComponent({
             rootItems={rootItems}
             threadListState={threadListState}
             progressiveDisclosureEnabled={progressiveDisclosureEnabled}
+            initialItemLimit={PROJECT_THREAD_ITEMS_INITIAL_LIMIT}
             selectedThreadId={selectedThreadId}
             collapsedThreadIds={collapsedThreadIds}
             collapsedEnvironmentIds={collapsedEnvironmentIds}

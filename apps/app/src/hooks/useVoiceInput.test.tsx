@@ -55,6 +55,63 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+it("starts one recording while microphone access is pending", async () => {
+  let grantMicrophone!: (stream: MediaStream) => void;
+  const microphoneRequest = new Promise<MediaStream>((resolve) => {
+    grantMicrophone = resolve;
+  });
+  const getUserMedia = vi.fn().mockReturnValue(microphoneRequest);
+  vi.stubGlobal("navigator", { mediaDevices: { getUserMedia } });
+  const stream = {
+    getTracks: () => [{ stop: vi.fn() }],
+  } as unknown as MediaStream;
+  const { result } = renderHook(() =>
+    useVoiceInput({ onTranscribe: vi.fn(), onTranscript: vi.fn() }),
+  );
+
+  let firstStart!: Promise<void>;
+  await act(async () => {
+    firstStart = result.current.start();
+    await result.current.start();
+  });
+  expect(getUserMedia).toHaveBeenCalledTimes(1);
+
+  await act(async () => {
+    grantMicrophone(stream);
+    await firstStart;
+  });
+  expect(result.current.state).toBe("recording");
+});
+
+it("releases a microphone granted after the prompt unmounts", async () => {
+  let grantMicrophone!: (stream: MediaStream) => void;
+  const microphoneRequest = new Promise<MediaStream>((resolve) => {
+    grantMicrophone = resolve;
+  });
+  vi.stubGlobal("navigator", {
+    mediaDevices: { getUserMedia: vi.fn().mockReturnValue(microphoneRequest) },
+  });
+  const stopTrack = vi.fn();
+  const stream = {
+    getTracks: () => [{ stop: stopTrack }],
+  } as unknown as MediaStream;
+  const { result, unmount } = renderHook(() =>
+    useVoiceInput({ onTranscribe: vi.fn(), onTranscript: vi.fn() }),
+  );
+
+  let start!: Promise<void>;
+  await act(async () => {
+    start = result.current.start();
+  });
+  unmount();
+  await act(async () => {
+    grantMicrophone(stream);
+    await start;
+  });
+  expect(stopTrack).toHaveBeenCalledTimes(1);
+  expect(appToast.error).not.toHaveBeenCalled();
+});
+
 it.each([
   new Error("Upload failed"),
   new Error("Audio file exceeds the 20MB limit"),
@@ -74,7 +131,8 @@ it.each([
   expect(transcript).not.toHaveBeenCalled();
   const options = vi.mocked(appToast.error).mock.calls[0]?.[1];
   expect(options?.duration).toBe(Infinity);
-  expect(options?.action?.label).toBe("Download recording");
+  expect(options?.action?.label).toBe("Retry transcription");
+  expect(options?.cancel?.label).toBe("Download recording");
   unmount();
   const createObjectURL = vi.fn(() => "blob:recording");
   const revokeObjectURL = vi.fn();
@@ -87,9 +145,9 @@ it.each([
       expect(this.isConnected).toBe(true);
     },
   );
-  if (!options?.action) throw new Error("Missing download action");
+  if (!options?.cancel) throw new Error("Missing download action");
   const button = render(
-    <button onClick={options.action.onClick}>Download recording</button>,
+    <button onClick={options.cancel.onClick}>Download recording</button>,
   );
   fireEvent.click(button.getByRole("button"));
   expect(createObjectURL).toHaveBeenCalledWith(
@@ -99,6 +157,36 @@ it.each([
   expect(revokeObjectURL).not.toHaveBeenCalled();
   vi.advanceTimersByTime(60_000);
   expect(revokeObjectURL).toHaveBeenCalledWith("blob:recording");
+});
+
+it("retries transcription using the captured recording", async () => {
+  const transcribe = vi
+    .fn()
+    .mockRejectedValueOnce(new Error("Transcription timed out"))
+    .mockResolvedValueOnce("Hello again");
+  const onTranscript = vi.fn();
+  const { result } = renderHook(() =>
+    useVoiceInput({ onTranscribe: transcribe, onTranscript }),
+  );
+  await act(() => result.current.start());
+  vi.advanceTimersByTime(1500);
+  await act(async () => result.current.stop());
+
+  const retry = vi.mocked(appToast.error).mock.calls[0]?.[1]?.action;
+  if (!retry) throw new Error("Missing retry action");
+  const button = render(
+    <button onClick={retry.onClick}>Retry transcription</button>,
+  );
+  await act(async () => {
+    fireEvent.click(button.getByRole("button"));
+  });
+
+  expect(transcribe).toHaveBeenCalledTimes(2);
+  expect(transcribe.mock.calls[1]?.[0].file).toBe(
+    transcribe.mock.calls[0]?.[0].file,
+  );
+  expect(onTranscript).toHaveBeenCalledWith("Hello again");
+  expect(result.current.state).toBe("idle");
 });
 
 it("does not offer a download after explicit cancellation", async () => {
