@@ -45,9 +45,11 @@ function renderThreadTree(
   threads: ThreadListEntry[],
   {
     progressiveDisclosureEnabled = true,
+    initialItemLimit,
     selectedThreadId,
   }: {
     progressiveDisclosureEnabled?: boolean;
+    initialItemLimit?: number;
     selectedThreadId?: string;
   } = {},
 ) {
@@ -57,6 +59,7 @@ function renderThreadTree(
         <ProjectThreadTree
           threadListState={{ status: "ready", threads: entries }}
           progressiveDisclosureEnabled={progressiveDisclosureEnabled}
+          initialItemLimit={initialItemLimit}
           compareThreads={() => 0}
           selectedThreadId={selectedThreadId}
           collapsedThreadIds={new Set()}
@@ -89,6 +92,18 @@ describe("ProjectThreadTree progressive disclosure", () => {
 
     expect(screen.getByText("Thread 6")).not.toBeNull();
     expect(screen.queryByRole("button", { name: "Show more" })).toBeNull();
+  });
+
+  it("shows seven recent project conversations even when the experiment is disabled", () => {
+    renderThreadTree(makePlainThreads(9), {
+      progressiveDisclosureEnabled: false,
+      initialItemLimit: 7,
+    });
+
+    expect(screen.getByText("Thread 6")).not.toBeNull();
+    expect(screen.queryByText("Thread 7")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Show more" }));
+    expect(screen.getByText("Thread 8")).not.toBeNull();
   });
 
   it("renders every item without controls when the list fits the attention limit", () => {

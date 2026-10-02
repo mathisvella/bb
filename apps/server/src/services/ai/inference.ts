@@ -58,7 +58,7 @@ export const INFERENCE_POLICY = {
   hostRpcGraceMs: 1_000,
   commitMessage: { maxAttempts: 2, retryDelayMs: 0, timeoutMs: 5_000 },
   threadMetadata: { maxAttempts: 2, retryDelayMs: 250, timeoutMs: 5_000 },
-  voiceTranscription: { maxAttempts: 2, retryDelayMs: 250, timeoutMs: 10_000 },
+  voiceTranscription: { maxAttempts: 2, retryDelayMs: 250, timeoutMs: 25_000 },
 } as const;
 
 interface InferenceCompleteArgs<T extends TSchema> {

@@ -214,13 +214,13 @@ describe("voice transcription", () => {
       expect(harness.calls[0]?.input).toMatchObject({
         serviceId: "codex",
         model: "gpt-transcribe",
-        timeoutMs: 10_000,
+        timeoutMs: 25_000,
         mimeType: "audio/webm",
         filename: "prompt.webm",
       });
       expect(harness.calls[1]?.input).toMatchObject({
         model: "gpt-transcribe",
-        timeoutMs: 10_000,
+        timeoutMs: 25_000,
       });
     } finally {
       await harness.cleanup();
@@ -298,7 +298,7 @@ describe("voice transcription", () => {
     }
   });
 
-  it("uses the 10 second timeout budget for OpenAI transcription", async () => {
+  it("uses the 25 second timeout budget for OpenAI transcription", async () => {
     const harness = await createTestAppHarness({
       transcriptionModel: "openai/gpt-4o-transcribe",
     });
@@ -318,7 +318,7 @@ describe("voice transcription", () => {
       await expect(
         transcribeVoiceInput(harness.deps, { file: voiceFile() }),
       ).resolves.toBe("hello openai");
-      expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 10_000);
+      expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 25_000);
     } finally {
       vi.unstubAllGlobals();
       setTimeoutSpy.mockRestore();
