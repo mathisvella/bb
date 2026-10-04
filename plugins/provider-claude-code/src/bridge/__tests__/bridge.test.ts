@@ -2337,21 +2337,21 @@ describe("bridge", () => {
         models: [
           {
             value: "default",
-            resolvedModel: "claude-opus-5[1m]",
+            resolvedModel: "claude-opus-5-5",
             displayName: "Default (recommended)",
-            description: "Opus 5 with 1M context",
+            description: "Opus 5.5 with 1M context",
           },
           {
-            value: "opus[1m]",
-            resolvedModel: "claude-opus-5[1m]",
-            displayName: "Opus",
-            description: "Opus 5 with 1M context",
+            value: "opus",
+            resolvedModel: "claude-opus-5-5",
+            displayName: "Opus 5.5",
+            description: "Opus 5.5 with 1M context",
           },
           {
             value: "sonnet",
-            resolvedModel: "claude-sonnet-5",
-            displayName: "Sonnet",
-            description: "Sonnet 5",
+            resolvedModel: "claude-sonnet-5-5",
+            displayName: "Sonnet 5.5",
+            description: "Sonnet 5.5",
           },
         ],
       }),
@@ -2367,15 +2367,17 @@ describe("bridge", () => {
       "claude-opus-4-8[1m]",
       "claude-opus-4-7[1m]",
       "claude-sonnet-5",
+      "claude-opus-5-5",
+      "claude-sonnet-5-5",
     ]);
     expect(models.filter((model) => model.isDefault)).toEqual([
       expect.objectContaining({
-        model: "claude-opus-5[1m]",
-        displayName: "Opus 5 (1M)",
+        model: "claude-opus-5-5",
+        displayName: "Opus 5.5",
       }),
     ]);
     expect(selectedOnlyModels.map((model) => model.model)).toEqual([
-      "opus[1m]",
+      "opus",
       "sonnet",
     ]);
     expect(queryMock).toHaveBeenCalledWith({
@@ -2386,6 +2388,9 @@ describe("bridge", () => {
         persistSession: false,
       }),
     });
+    const probeOptions = queryMock.mock.lastCall?.[0].options;
+    expect(probeOptions).not.toHaveProperty("allowDangerouslySkipPermissions");
+    expect(probeOptions).not.toHaveProperty("permissionMode");
     expect(close).toHaveBeenCalledOnce();
   });
 
