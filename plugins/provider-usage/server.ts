@@ -375,6 +375,8 @@ export default function providerUsagePlugin(bb: BbPluginApi): void {
       candidates,
       ({ source, resource }) => ({
         ...resource,
+        usageStatus: measurements.get(keyOf(source.pluginId, resource.id))
+          ?.value.usage.status,
         providerId: usageProviderGroupId(
           resource.providerId,
           providers.find((provider) => provider.id === resource.providerId)
