@@ -349,11 +349,20 @@ export function useVoiceInput(options: UseVoiceInputOptions) {
         promptContextRef.current = undefined;
 
         const transcribe = async () => {
+          if (transcriptionAbortRef.current !== null) return;
           setState("transcribing");
           const abortController = new AbortController();
           transcriptionAbortRef.current = abortController;
           let timedOut = false;
           let timeoutId: ReturnType<typeof setTimeout> | undefined;
+          let rejectOnAbort: (() => void) | undefined;
+          const cancellation = new Promise<never>((_, reject) => {
+            rejectOnAbort = () =>
+              reject(new DOMException("Transcription cancelled", "AbortError"));
+            abortController.signal.addEventListener("abort", rejectOnAbort, {
+              once: true,
+            });
+          });
           const timeout = new Promise<never>((_, reject) => {
             timeoutId = setTimeout(() => {
               timedOut = true;
@@ -373,6 +382,7 @@ export function useVoiceInput(options: UseVoiceInputOptions) {
                 signal: abortController.signal,
               }),
               timeout,
+              cancellation,
             ]);
             if (abortController.signal.aborted) {
               return;
@@ -411,6 +421,11 @@ export function useVoiceInput(options: UseVoiceInputOptions) {
             });
           } finally {
             clearTimeout(timeoutId);
+            if (rejectOnAbort)
+              abortController.signal.removeEventListener(
+                "abort",
+                rejectOnAbort,
+              );
             if (transcriptionAbortRef.current === abortController) {
               transcriptionAbortRef.current = null;
             }

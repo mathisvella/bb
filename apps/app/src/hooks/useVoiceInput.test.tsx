@@ -238,3 +238,21 @@ it("stops waiting for a hung transcription and retries the same recording", asyn
   expect(onTranscript).toHaveBeenCalledWith("Recovered dictation");
   expect(result.current.state).toBe("idle");
 });
+
+it("cancels a hung transcription immediately without a later timeout error", async () => {
+  const { result } = renderHook(() =>
+    useVoiceInput({
+      onTranscribe: () => new Promise<string>(() => {}),
+      onTranscript: vi.fn(),
+    }),
+  );
+  await act(() => result.current.start());
+  vi.advanceTimersByTime(1500);
+  act(() => result.current.stop());
+  await act(async () => result.current.cancel());
+  expect(result.current.state).toBe("idle");
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(90_000);
+  });
+  expect(appToast.error).not.toHaveBeenCalled();
+});
