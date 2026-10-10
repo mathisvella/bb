@@ -1,3 +1,4 @@
+import { latestProviderSwitchSequence } from "./thread-provider-context.js";
 import { createHash, randomUUID } from "node:crypto";
 import { and, desc, eq, isNull, lt, sql } from "drizzle-orm";
 import {
@@ -445,7 +446,11 @@ export async function editThreadMessage(
       requestSequence: committed.requestSequence,
     };
   }
-  if (deps.pendingInteractions.hasTurnBoundPendingThreadInteraction(args.thread.id)) {
+  if (
+    deps.pendingInteractions.hasTurnBoundPendingThreadInteraction(
+      args.thread.id,
+    )
+  ) {
     conflict("Resolve the pending interaction before editing the message");
   }
   if (hasQueuedThreadMessages(deps.db, args.thread.id)) {
@@ -468,6 +473,15 @@ export async function editThreadMessage(
     initialThread,
     args.payload.expectedRequestSequence,
   );
+  const switchSequence = latestProviderSwitchSequence(deps, initialThread.id);
+  if (
+    switchSequence !== null &&
+    initialTarget.requestSequence < switchSequence
+  ) {
+    conflict(
+      "Messages from a previous provider session cannot be edited; send a new follow-up in this thread",
+    );
+  }
   const editableThread = await stopThreadBeforeMessageEdit(deps, {
     environment: args.environment,
     threadId: initialThread.id,

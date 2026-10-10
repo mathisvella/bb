@@ -277,11 +277,7 @@ export function ModelReasoningPicker({
 
   if (trackedSelectedProviderId !== selectedProviderId) {
     setTrackedSelectedProviderId(selectedProviderId);
-    setHandoffMode(
-      open &&
-        handoff !== undefined &&
-        selectedProviderId !== handoff.sourceProviderId,
-    );
+    setHandoffMode(false);
     setHandoffReasoningLevel(null);
     setPreviewProviderId(null);
     setShowMoreModels(false);
@@ -292,6 +288,16 @@ export function ModelReasoningPicker({
 
   const activeProviderId = previewProviderId ?? selectedProviderId;
 
+  const providerGroups = useMemo(() => {
+    const groups = new Map<string, ProviderPickerOption[]>();
+    for (const option of providerOptions) {
+      const key = option.family ?? option.value;
+      const group = groups.get(key);
+      if (group) group.push(option);
+      else groups.set(key, [option]);
+    }
+    return [...groups.values()];
+  }, [providerOptions]);
   const selectedProvider = providerOptions.find(
     (p) => p.value === selectedProviderId,
   );
@@ -452,7 +458,9 @@ export function ModelReasoningPicker({
       (isPreviewing ? previewSelection?.reasoningLevel : reasoningValue) ??
       "")
     : isPreviewing
-      ? ""
+      ? handoff !== undefined
+        ? (previewSelection?.reasoningLevel ?? "")
+        : ""
       : reasoningValue;
   const activeModelLoadError = isPreviewing
     ? (previewQuery.data?.modelLoadError ?? null)
@@ -583,7 +591,7 @@ export function ModelReasoningPicker({
   const handleModelSelect = useCallback(
     (model: string) => {
       if (previewSelectionBlocked) return;
-      if (handoff !== undefined && handoffMode) {
+      if (handoff !== undefined && (handoffMode || isPreviewing)) {
         handoff.onSelect({
           providerId: activeProviderId,
           model,
@@ -629,15 +637,12 @@ export function ModelReasoningPicker({
   );
   const handleProviderSelect = useCallback(
     (providerId: string) => {
-      if (
-        open &&
-        handoff !== undefined &&
-        (handoffMode || providerId !== handoff.sourceProviderId)
-      ) {
+      if (open && handoff !== undefined && handoffMode) {
         handleHandoffProviderSelect(providerId);
         return;
       }
-      onSelectedProviderChange?.(providerId);
+      if (!(open && handoff !== undefined))
+        onSelectedProviderChange?.(providerId);
       const nextPreviewProviderId =
         open && providerId !== selectedProviderId ? providerId : null;
       setPreviewProviderId(nextPreviewProviderId);
@@ -675,6 +680,15 @@ export function ModelReasoningPicker({
         return;
       }
       if (isPreviewing && previewSelection?.selectedModel) {
+        if (handoff !== undefined) {
+          handoff.onSelect({
+            providerId: activeProviderId,
+            model: previewSelection.selectedModel,
+            reasoningLevel: level,
+          });
+          setMoreModelsOpen(false);
+          return;
+        }
         onModelChange(previewSelection.selectedModel);
       }
       onReasoningChange(level);
@@ -682,6 +696,8 @@ export function ModelReasoningPicker({
       setMoreModelsOpen(false);
     },
     [
+      activeProviderId,
+      handoff,
       handoffMode,
       isPreviewing,
       previewSelection,
@@ -751,17 +767,17 @@ export function ModelReasoningPicker({
     MODEL_CYCLE_COMMANDS,
     (index, { target }) => {
       if (!ownsCycleChord(target)) return false;
-      const options = handoffMode ? activeModelOptions : modelOptions;
-      const value =
-        handoffMode && isPreviewing
-          ? (previewSelection?.selectedModel ?? "")
-          : modelValue;
+      const options =
+        handoffMode || isPreviewing ? activeModelOptions : modelOptions;
+      const value = isPreviewing
+        ? (previewSelection?.selectedModel ?? "")
+        : modelValue;
       const next =
         index === 0
           ? nextCycleValue(options, value)
           : previousCycleValue(options, value);
       if (next !== null) {
-        if (handoffMode) {
+        if (handoffMode || isPreviewing) {
           handleModelSelect(next);
         } else {
           onModelChange(next);
@@ -805,15 +821,16 @@ export function ModelReasoningPicker({
     REASONING_CYCLE_COMMANDS,
     (index, { target }) => {
       if (!ownsCycleChord(target)) return false;
-      const value = handoffMode ? activeReasoningValue : reasoningValue;
+      const value =
+        handoffMode || isPreviewing ? activeReasoningValue : reasoningValue;
       if (value === "") return true;
       const next = cycleReasoningValue(
-        handoffMode ? activeReasoningOptions : reasoningOptions,
+        handoffMode || isPreviewing ? activeReasoningOptions : reasoningOptions,
         value,
         index === 0 ? "forward" : "backward",
       );
       if (next !== null) {
-        if (handoffMode) {
+        if (handoffMode || isPreviewing) {
           handleReasoningSelect(next);
         } else {
           onReasoningChange(next);
@@ -1055,7 +1072,11 @@ export function ModelReasoningPicker({
         {handoffMode ? <HandoffModeHeader onBack={exitHandoffMode} /> : null}
         {showProviderTabs ? (
           <div className="flex shrink-0 items-center gap-0.5 border-b border-border bg-background px-2.5 pt-1">
-            {providerOptions.map((provider) => {
+            {providerGroups.map((accounts) => {
+              const provider =
+                accounts.find(
+                  (account) => account.value === activeProviderId,
+                ) ?? accounts[0]!;
               const TabIcon = provider.icon;
               const isActive = provider.value === activeProviderId;
               const isHandoffSource =
@@ -1064,12 +1085,12 @@ export function ModelReasoningPicker({
                 provider.value === handoff.sourceProviderId;
               return (
                 <button
-                  key={provider.value}
+                  key={provider.family ?? provider.value}
                   type="button"
                   title={
                     isHandoffSource
                       ? `${provider.label} (current thread)`
-                      : provider.label
+                      : (provider.family ?? provider.label)
                   }
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={() => {
@@ -1105,6 +1126,32 @@ export function ModelReasoningPicker({
           </div>
         ) : null}
 
+        {(
+          providerGroups.find((accounts) =>
+            accounts.some((account) => account.value === activeProviderId),
+          ) ?? []
+        ).length > 1 ? (
+          <div
+            className="flex flex-wrap gap-1 border-b border-border p-2"
+            aria-label="Provider accounts"
+          >
+            {providerGroups
+              .find((accounts) =>
+                accounts.some((account) => account.value === activeProviderId),
+              )
+              ?.map((account) => (
+                <button
+                  key={account.value}
+                  type="button"
+                  aria-pressed={account.value === activeProviderId}
+                  className="rounded px-2 py-1 text-xs hover:bg-state-hover"
+                  onClick={() => handleProviderSelect(account.value)}
+                >
+                  {account.label}
+                </button>
+              ))}
+          </div>
+        ) : null}
         {showSearchInput ? (
           <ModelSearchInput
             inputRef={searchInputRef}

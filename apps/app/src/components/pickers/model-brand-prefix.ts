@@ -1,6 +1,7 @@
 import type { PickerOption } from "./OptionPicker";
 
 export interface ProviderPickerOption extends PickerOption<string> {
+  family?: string;
   brandPrefix?: string;
   planModeCopy?: string;
   installUrl?: string;

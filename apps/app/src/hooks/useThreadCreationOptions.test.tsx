@@ -1343,3 +1343,35 @@ describe("useThreadCreationOptions", () => {
     });
   });
 });
+
+it("hides picker-only providers while retaining their metadata and distinct grouped account IDs", async () => {
+  const response = executionOptionsResponse();
+  const template = response.providers[0]!;
+  response.providers = [
+    {
+      ...template,
+      id: "claude-code",
+      experimental_picker: { group: "Claude" },
+    },
+    {
+      ...template,
+      id: "claude-work",
+      experimental_picker: { group: "Claude" },
+    },
+    { ...template, id: "pi", experimental_picker: { hidden: true } },
+    { ...template, id: "acp-cursor", experimental_picker: { hidden: true } },
+  ];
+  vi.mocked(sdk.system.executionOptions).mockResolvedValue(response);
+  const { result } = renderHook(
+    () => useThreadCreationOptions({ scope: "new-thread" }),
+    { wrapper: createQueryClientTestHarness().wrapper },
+  );
+  await waitFor(() => expect(result.current.providers).toHaveLength(4));
+  expect(result.current.providerOptions.map((option) => option.value)).toEqual([
+    "claude-code",
+    "claude-work",
+  ]);
+  expect(result.current.providerOptions.map((option) => option.family)).toEqual(
+    ["Claude", "Claude"],
+  );
+});

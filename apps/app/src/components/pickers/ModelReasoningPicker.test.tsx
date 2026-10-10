@@ -1181,3 +1181,91 @@ describe("buildModelNavRows", () => {
     ]);
   });
 });
+
+it("groups Claude accounts under one tab and keeps each account selectable", () => {
+  const { onSelectedProviderChange } = renderPicker({
+    pickerProviderOptions: [
+      { value: "codex", label: "Codex" },
+      { value: "claude-code", label: "Personal Claude", family: "Claude" },
+      { value: "claude-work", label: "Work Claude", family: "Claude" },
+    ],
+  });
+  fireEvent.click(
+    screen.getByRole("button", { name: "Provider, model and reasoning" }),
+  );
+  expect(screen.getAllByTitle("Claude")).toHaveLength(1);
+  fireEvent.click(screen.getByTitle("Claude"));
+  expect(screen.getByRole("button", { name: "Personal Claude" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Work Claude" }));
+  expect(onSelectedProviderChange).toHaveBeenLastCalledWith("claude-work");
+});
+
+it("selects another provider in place without entering the new-thread handoff", async () => {
+  const onSelect = vi.fn();
+  const onStart = vi.fn();
+  renderPicker({
+    handoff: {
+      sourceProviderId: "codex",
+      active: false,
+      onStart,
+      onExit: vi.fn(),
+      onSelect,
+    },
+  });
+  fireEvent.click(
+    screen.getByRole("button", { name: "Provider, model and reasoning" }),
+  );
+  fireEvent.click(screen.getByTitle("Claude Code"));
+  await screen.findByText("Opus 4.7");
+  expect(onStart).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByText("Opus 4.7"));
+  expect(onSelect).toHaveBeenCalledWith({
+    providerId: "claude-code",
+    model: "claude-opus-4-7",
+    reasoningLevel: "medium",
+  });
+  expect(screen.queryByRole("button", { name: "Exit handoff" })).toBeNull();
+});
+
+it("switches the provider when selecting reasoning from its preview", async () => {
+  const onSelect = vi.fn();
+  const { onModelChange, onReasoningChange } = renderPicker({
+    handoff: {
+      sourceProviderId: "codex",
+      active: false,
+      onStart: vi.fn(),
+      onExit: vi.fn(),
+      onSelect,
+    },
+    alternateProviderModels: [
+      {
+        ...availableModel({
+          value: "claude-opus-4-7",
+          label: "Claude Opus 4.7",
+          isDefault: true,
+        }),
+        supportedReasoningEfforts: [
+          { reasoningEffort: "medium", description: "Medium" },
+          { reasoningEffort: "high", description: "High" },
+        ],
+      },
+    ],
+  });
+  fireEvent.click(
+    screen.getByRole("button", { name: "Provider, model and reasoning" }),
+  );
+  fireEvent.click(screen.getByTitle("Claude Code"));
+  await screen.findByText("Opus 4.7");
+  act(() => {
+    commandHandlers.get("modelPicker.cycleReasoning")?.({
+      target: document.body,
+    });
+  });
+  expect(onSelect).toHaveBeenCalledExactlyOnceWith({
+    providerId: "claude-code",
+    model: "claude-opus-4-7",
+    reasoningLevel: "high",
+  });
+  expect(onModelChange).not.toHaveBeenCalled();
+  expect(onReasoningChange).not.toHaveBeenCalled();
+});

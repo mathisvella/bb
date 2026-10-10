@@ -193,3 +193,7 @@ For review or fix pipelines, get the environment ID from
   same scope, size, and title. It does not replay the original launch command.
 
 Clearing a thread's parent with `bb thread update --clear-parent-thread` inherits the former parent's section unless the update explicitly supplies a section. Children released by environment archiving also inherit their former parent's section.
+
+Switch an idle thread to another provider with `bb thread update <id> --provider <id> [--model <model>] [--reasoning-level <level>]`. The thread ID, workspace and visible history stay the same. The next provider session receives the prior conversation as context. Active turns and pending interactions must finish first. SDK callers use `sdk.threads.update({ threadId, providerId, model, reasoningLevel })`.
+
+Provider handover context is limited to the latest 200 stored message events and 100,000 characters. Full BB history remains visible. Editing or forking a checkpoint from a previous provider session is refused.

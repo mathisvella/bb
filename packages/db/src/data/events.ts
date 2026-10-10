@@ -3536,7 +3536,16 @@ function readStoredProviderThreadClaim(
       and(
         eq(events.type, "thread/identity"),
         eq(events.providerThreadId, providerThreadId),
-        eq(threads.providerId, scope.providerId),
+        sql`COALESCE((
+          SELECT json_extract(provider_change.data, '$.metadata.fromProviderId')
+          FROM events AS provider_change
+          WHERE provider_change.thread_id = ${events.threadId}
+            AND provider_change.sequence > ${events.sequence}
+            AND provider_change.type = 'system/operation'
+            AND json_extract(provider_change.data, '$.operation') = 'provider_switch'
+            AND json_extract(provider_change.data, '$.status') = 'completed'
+          ORDER BY provider_change.sequence LIMIT 1
+        ), ${threads.providerId}) = ${scope.providerId}`,
         scope.hostId === null
           ? undefined
           : or(
@@ -3552,7 +3561,16 @@ function readStoredProviderThreadClaim(
             ON earliest_environment.id = earliest_thread.environment_id
           WHERE earliest.type = 'thread/identity'
             AND earliest.provider_thread_id = ${providerThreadId}
-            AND earliest_thread.provider_id = ${scope.providerId}
+            AND COALESCE((
+              SELECT json_extract(provider_change.data, '$.metadata.fromProviderId')
+              FROM events AS provider_change
+              WHERE provider_change.thread_id = earliest.thread_id
+                AND provider_change.sequence > earliest.sequence
+                AND provider_change.type = 'system/operation'
+                AND json_extract(provider_change.data, '$.operation') = 'provider_switch'
+                AND json_extract(provider_change.data, '$.status') = 'completed'
+              ORDER BY provider_change.sequence LIMIT 1
+            ), earliest_thread.provider_id) = ${scope.providerId}
             AND ${earliestHostCondition}
           ORDER BY earliest.created_at
           LIMIT 1
@@ -3622,7 +3640,7 @@ function readNewestStoredProviderThreadIdentity(
           FROM events AS context_clear
           WHERE context_clear.thread_id = ${args.threadId}
             AND context_clear.type = 'system/operation'
-            AND json_extract(context_clear.data, '$.operation') = ${THREAD_CONTEXT_CLEAR_OPERATION}
+            AND json_extract(context_clear.data, '$.operation') IN (${THREAD_CONTEXT_CLEAR_OPERATION}, 'provider_switch')
             AND json_extract(context_clear.data, '$.status') = 'completed'
         ), 0)`,
         args.excludedProviderThreadIds.length === 0

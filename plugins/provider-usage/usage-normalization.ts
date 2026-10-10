@@ -76,3 +76,15 @@ export function selectUsageResources<T>(
   }
   return result;
 }
+
+export function usageProviderGroupId(
+  providerId: string,
+  family?: string,
+): string {
+  return providerId === "claude" ||
+    providerId === "claude-code" ||
+    family === "claude" ||
+    family === "claude-code"
+    ? "claude-code"
+    : providerId;
+}

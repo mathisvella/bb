@@ -55,6 +55,7 @@ const mocks = vi.hoisted(() => ({
   clearThreadGoalMutate: vi.fn(),
   createQueuedMessageMutateAsync: vi.fn(),
   createThreadMutateAsync: vi.fn(),
+  updateThreadMutateAsync: vi.fn().mockResolvedValue({}),
   defaultExecutionOptions: null as ResolvedThreadExecutionOptions | null,
   executionInputSources: {} as ExistingThreadExecutionInputSources,
   deleteQueuedMessageMutateAsync: vi.fn(),
@@ -698,6 +699,10 @@ vi.mock("@/hooks/mutations/thread-runtime-mutations", () => ({
 }));
 
 vi.mock("@/hooks/mutations/thread-state-mutations", () => ({
+  useUpdateThread: () => ({
+    isPending: false,
+    mutateAsync: mocks.updateThreadMutateAsync,
+  }),
   useUnarchiveThread: () => ({
     isPending: false,
     mutate: mocks.unarchiveThreadMutate,
@@ -1567,6 +1572,7 @@ describe("ThreadDetailPromptArea", () => {
     ];
 
     renderPromptArea();
+    fireEvent.click(screen.getByRole("button", { name: "Start handoff" }));
     fireEvent.click(screen.getByRole("button", { name: "Switch provider" }));
     fireEvent.click(
       screen.getByRole("button", { name: "Edit queued message 1" }),
@@ -2011,8 +2017,15 @@ describe("ThreadDetailPromptArea", () => {
     return result as unknown as ExperimentalComposerSelection;
   }
 
-  it("starts a handoff when a plugin sets another provider, and drops the fields a thread has no picker for", async () => {
+  it("switches the current thread when a plugin sets another provider, and drops the fields a thread has no picker for", async () => {
     mocks.promptDraft.text = "Keep going";
+    mocks.defaultExecutionOptions = {
+      model: "gpt-5",
+      permissionMode: "auto",
+      reasoningLevel: "medium",
+      serviceTier: "default",
+      source: "client/turn/requested",
+    };
     mocks.createThreadMutateAsync.mockResolvedValue({
       id: "thr_new",
       projectId: "proj_1",
@@ -2040,27 +2053,30 @@ describe("ThreadDetailPromptArea", () => {
       reasoningLevel: "medium",
       permissionMode: "auto",
     });
-    expect(screen.getByTestId("submit-label").textContent).toBe("New thread");
+    expect(screen.getByTestId("submit-label").textContent).toBe("");
     expect(screen.getByTestId("command-suggestions").textContent).toBe(
-      "claude-code:new-thread",
+      "claude-code:thread",
     );
     expect(screen.getByTestId("selected-model").textContent).toBe(
       "claude-opus-5",
     );
-    expect(mocks.promptDraft.text).not.toBe("Keep going");
-    expect(mocks.promptDraft.text.endsWith("Keep going")).toBe(true);
+    expect(mocks.promptDraft.text).toBe("Keep going");
     expect(mocks.setServiceTier).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "Submit composer" }));
     await waitFor(() =>
-      expect(mocks.createThreadMutateAsync).toHaveBeenCalledWith(
+      expect(mocks.sendMessageMutateAsync).toHaveBeenCalledWith(
         expect.objectContaining({
-          providerId: "claude-code",
+          id: "thr_1",
           model: "claude-opus-5",
         }),
       ),
     );
-    expect(mocks.sendMessageMutateAsync).not.toHaveBeenCalled();
+    expect(mocks.createThreadMutateAsync).not.toHaveBeenCalled();
+    expect(mocks.updateThreadMutateAsync).toHaveBeenCalledWith({
+      id: "thr_1",
+      providerId: "claude-code",
+    });
   });
 
   it("sets a same-provider model in place without starting a handoff", async () => {
@@ -2121,6 +2137,7 @@ describe("ThreadDetailPromptArea", () => {
       projectId: "proj_1",
     });
     renderPromptArea();
+    fireEvent.click(screen.getByRole("button", { name: "Start handoff" }));
     fireEvent.click(
       screen.getByRole("button", { name: "Same provider handoff" }),
     );
@@ -2225,6 +2242,7 @@ describe("ThreadDetailPromptArea", () => {
       expect(screen.getByTestId("submit-title").textContent).toBe("Submit");
       expect(screen.getByTestId("submit-label").textContent).toBe("");
 
+      fireEvent.click(screen.getByRole("button", { name: "Start handoff" }));
       fireEvent.click(screen.getByRole("button", { name: entryAction }));
 
       expect(screen.getByTestId("submit-label").textContent).toBe("New thread");
@@ -2273,6 +2291,7 @@ describe("ThreadDetailPromptArea", () => {
     expect(screen.getByTestId("active-permission-mode").textContent).toBe(
       "plan",
     );
+    fireEvent.click(screen.getByRole("button", { name: "Start handoff" }));
     fireEvent.click(screen.getByRole("button", { name: "Switch provider" }));
     expect(screen.getByTestId("active-permission-mode").textContent).toBe("");
     expect(screen.getByTestId("selected-permission").textContent).toBe("full");
@@ -2303,6 +2322,7 @@ describe("ThreadDetailPromptArea", () => {
         projectId: "proj_1",
       });
       const { rerender } = renderPromptArea({ thread });
+      fireEvent.click(screen.getByRole("button", { name: "Start handoff" }));
       fireEvent.click(
         screen.getByRole("button", { name: "Switch provider back" }),
       );
@@ -2368,6 +2388,7 @@ describe("ThreadDetailPromptArea", () => {
         titleFallback: null,
       }),
     });
+    fireEvent.click(screen.getByRole("button", { name: "Start handoff" }));
     fireEvent.click(screen.getByRole("button", { name: "Switch provider" }));
     fireEvent.click(screen.getByRole("button", { name: "Submit composer" }));
 

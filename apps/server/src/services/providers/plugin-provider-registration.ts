@@ -159,6 +159,9 @@ export function buildPluginProviderRegistration(args: {
   const info: ProviderInfo = {
     id: declaration.id,
     pluginId: args.pluginId,
+    ...(declaration.experimental_picker === undefined
+      ? {}
+      : { experimental_picker: { ...declaration.experimental_picker } }),
     displayName: declaration.displayName,
     ...(declaration.family === undefined ? {} : { family: declaration.family }),
     available: args.available,

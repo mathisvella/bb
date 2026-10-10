@@ -41,6 +41,7 @@ export default function plugin(bb: BbPluginApi) {
 
   bb.providers.register({
     id: "claude-code",
+    experimental_picker: { group: "Claude" },
     displayName: "Claude Code",
     icon: "./icons/claude-code.svg",
     strings: {

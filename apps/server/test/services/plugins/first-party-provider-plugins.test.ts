@@ -340,7 +340,7 @@ describe("first-party provider plugins", () => {
           "max",
         ]);
         expect(claude?.fallbackModels.map((model) => model.id)).toContain(
-          "claude-opus-5[1m]",
+          "claude-opus-5-5",
         );
         expect(claude?.envPassthrough).toEqual(["BB_CLAUDE_CODE_EXECUTABLE"]);
         expect(

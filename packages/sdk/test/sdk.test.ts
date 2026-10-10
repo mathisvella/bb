@@ -1435,6 +1435,34 @@ describe("@bb/sdk", () => {
     });
   });
 
+  it("forwards provider and model changes to the existing thread", async () => {
+    const queue = createFetchQueue([{ body: { id: "thr_existing" } }]);
+    const sdk = createBbSdk({
+      transport: createHttpTransport({
+        baseUrl: "http://bb.test",
+        fetch: queue.fetch,
+        runtime: "node",
+      }),
+    });
+
+    await sdk.threads.update({
+      threadId: "thr_existing",
+      providerId: "claude-code",
+      model: "claude-sonnet-5-5",
+      reasoningLevel: "high",
+    });
+
+    expect(queue.requests[0]).toMatchObject({
+      method: "PATCH",
+      url: "http://bb.test/api/v1/threads/thr_existing",
+    });
+    expect(JSON.parse(queue.requests[0]?.bodyText ?? "{}")).toEqual({
+      providerId: "claude-code",
+      model: "claude-sonnet-5-5",
+      reasoningLevel: "high",
+    });
+  });
+
   it("preserves section assignment in thread updates", async () => {
     const queue = createFetchQueue([
       {

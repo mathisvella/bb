@@ -35,6 +35,7 @@ import {
 import { SEND_AT_HELP, parseSendAt } from "./send-time.js";
 
 interface ThreadUpdateCommandOptions {
+  provider?: string;
   self?: boolean;
   json?: boolean;
   title?: string;
@@ -130,6 +131,7 @@ type PostThreadMessageResult = ThreadSendResult & {
 };
 
 interface ThreadUpdateBody {
+  providerId?: string;
   title?: string;
   sectionId?: string | null;
   parentThreadId?: string | null;
@@ -145,6 +147,10 @@ export function registerActionsCommands(
   parent
     .command("update [id]")
     .description("Update a thread")
+    .option(
+      "--provider <id>",
+      "Switch provider in this idle thread, keeping its history and workspace",
+    )
     .option("--self", "Target the current thread (from BB_THREAD_ID)")
     .option("--json", "Print machine-readable JSON output")
     .option("--title <title>", "Set the thread title")
@@ -182,13 +188,14 @@ export function registerActionsCommands(
             !opts.clearParentThread &&
             !opts.section &&
             !opts.clearSection &&
+            !opts.provider &&
             !opts.title &&
             !opts.model &&
             !reasoningLevel &&
             !visibility
           ) {
             throw new Error(
-              "No changes requested. Provide --title, --parent-thread, --clear-parent-thread, --section, --clear-section, --model, --reasoning-level, or --visibility.",
+              "No changes requested. Provide --title, --parent-thread, --clear-parent-thread, --section, --clear-section, --provider, --model, --reasoning-level, or --visibility.",
             );
           }
 
@@ -198,6 +205,7 @@ export function registerActionsCommands(
             value: opts.parentThread,
           });
           const body: ThreadUpdateBody = {};
+          if (opts.provider) body.providerId = opts.provider;
           if (opts.title) {
             body.title = opts.title;
           }

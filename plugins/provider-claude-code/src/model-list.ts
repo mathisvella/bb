@@ -257,7 +257,7 @@ interface ListClaudeCodeModelsResult {
 export function buildClaudeCodeModels(
   discoveredModels: readonly ModelInfo[],
 ): ListClaudeCodeModelsResult {
-  const models = CLAUDE_CODE_ACTIVE_CATALOG.map(buildCatalogModel);
+  const models: AvailableModel[] = [];
   for (const discovered of [
     ...discoveredModels.filter((model) => model.value !== "default"),
     ...discoveredModels.filter((model) => model.value === "default"),
@@ -266,8 +266,20 @@ export function buildClaudeCodeModels(
     if (models.some((model) => model.model === resolvedModel)) {
       continue;
     }
-    models.push(buildDiscoveredModel(discovered));
+    const entry = CLAUDE_CODE_ACTIVE_CATALOG.find(
+      (candidate) => candidate.model === resolvedModel,
+    );
+    const model = buildDiscoveredModel(discovered);
+    if (entry && !discovered.supportedEffortLevels?.length) {
+      model.supportedReasoningEfforts = cloneReasoningEfforts(
+        entry.supportedReasoningEfforts,
+      );
+      model.defaultReasoningEffort = entry.defaultReasoningEffort;
+    }
+    models.push(model);
   }
+  if (models.length === 0)
+    models.push(...CLAUDE_CODE_ACTIVE_CATALOG.map(buildCatalogModel));
   const selectedOnlyModels = CLAUDE_CODE_SELECTED_ONLY_CATALOG.filter(
     (entry) =>
       modelIsDiscovered(entry.model, discoveredModels) &&

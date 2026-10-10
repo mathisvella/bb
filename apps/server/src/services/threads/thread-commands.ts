@@ -1,3 +1,4 @@
+import { buildSwitchedProviderContext } from "./thread-provider-context.js";
 import { environments, events, threads } from "@bb/db";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import {
@@ -294,7 +295,9 @@ export async function buildThreadStartCommand(
       input: args.input,
       threadId: args.thread.id,
     }),
-    instructions: runtimeContext.instructions,
+    instructions:
+      runtimeContext.instructions +
+      buildSwitchedProviderContext(deps, args.thread.id),
     dynamicTools: runtimeContext.dynamicTools,
     contributedEnv: runtimeContext.contributedEnv,
     injectedSkillSources: runtimeContext.injectedSkillSources,

@@ -32,7 +32,7 @@ export const CLAUDE_XHIGH_CAPABLE_REASONING_EFFORT_DATA: readonly ClaudeCodeReas
     { reasoningEffort: "max", description: "Maximum reasoning effort" },
   ];
 
-export const DEFAULT_CLAUDE_CODE_MODEL = "claude-opus-5[1m]";
+export const DEFAULT_CLAUDE_CODE_MODEL = "claude-opus-5-5";
 
 export const CLAUDE_CODE_ACTIVE_CATALOG_DATA: readonly ClaudeCodeCatalogEntryData[] =
   [
@@ -45,9 +45,15 @@ export const CLAUDE_CODE_ACTIVE_CATALOG_DATA: readonly ClaudeCodeCatalogEntryDat
     },
     {
       model: DEFAULT_CLAUDE_CODE_MODEL,
-      displayName: "Opus 5 (1M)",
-      description: "Opus 5 with 1M context for complex long coding sessions",
+      displayName: "Opus 5.5",
+      description: "Opus 5.5 with 1M context for complex coding sessions",
       defaultReasoningEffort: "high",
+    },
+    {
+      model: "claude-haiku-5-5",
+      displayName: "Haiku 5.5",
+      description: "Haiku 5.5 for quick tasks",
+      defaultReasoningEffort: "low",
     },
     {
       model: "claude-opus-4-8[1m]",
@@ -62,9 +68,9 @@ export const CLAUDE_CODE_ACTIVE_CATALOG_DATA: readonly ClaudeCodeCatalogEntryDat
       defaultReasoningEffort: "medium",
     },
     {
-      model: "claude-sonnet-5",
-      displayName: "Sonnet 5",
-      description: "Sonnet 5 for everyday coding tasks with deeper reasoning",
+      model: "claude-sonnet-5-5",
+      displayName: "Sonnet 5.5",
+      description: "Sonnet 5.5 for everyday coding tasks",
       defaultReasoningEffort: "medium",
     },
   ];

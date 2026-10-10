@@ -1437,6 +1437,7 @@ export type PluginProviderNativeRoots = ProviderNativeRootsInputLike;
  * unavailable.
  */
 export interface PluginProviderDeclaration {
+  experimental_picker?: { hidden?: boolean; group?: string };
   /** Stable provider id: 2–64 characters of lowercase letters, digits, and
    * "-", starting with a letter or digit. Existing ids must never change —
    * threads persist them. */

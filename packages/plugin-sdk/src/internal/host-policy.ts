@@ -1354,6 +1354,7 @@ const MOVED_PROVIDER_CAPABILITY_FIELDS: Readonly<Record<string, string>> =
  */
 const READ_EXPERIMENTAL_PROVIDER_DECLARATION_FIELDS: ReadonlySet<string> =
   new Set([
+    "experimental_picker",
     "experimental_bridgeOptions",
     "experimental_visibility",
     "experimental_nativeSkillRoots",
@@ -1420,6 +1421,22 @@ export function validatePluginProviderDeclaration(
     renamed: RENAMED_PROVIDER_DECLARATION_FIELDS,
     verb: "renamed",
   });
+  const picker = declaration.experimental_picker;
+  if (
+    picker !== undefined &&
+    (typeof picker !== "object" ||
+      picker === null ||
+      Array.isArray(picker) ||
+      (picker.hidden !== undefined && typeof picker.hidden !== "boolean") ||
+      (picker.group !== undefined &&
+        (typeof picker.group !== "string" ||
+          picker.group.trim().length === 0 ||
+          picker.group.length > 80)))
+  ) {
+    throw new Error(
+      `provider "${id}" experimental_picker must contain a boolean hidden and a nonempty group label`,
+    );
+  }
   const family = declaration.family;
   if (
     family !== undefined &&
@@ -1649,6 +1666,7 @@ export function validatePluginProviderDeclaration(
   return Object.freeze({
     id,
     displayName,
+    ...(picker === undefined ? {} : { experimental_picker: { ...picker } }),
     ...(family === undefined ? {} : { family: family }),
     ...(icon === undefined ? {} : { icon }),
     ...(bridgeOptions === undefined

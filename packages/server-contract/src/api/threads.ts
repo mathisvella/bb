@@ -614,6 +614,7 @@ export type DeleteThreadRequest = z.infer<typeof deleteThreadRequestSchema>;
 
 export const updateThreadRequestSchema = z
   .object({
+    providerId: z.string().min(1),
     title: z.string().min(1).nullable(),
     sectionId: z.string().min(1).nullable(),
     parentThreadId: z.string().min(1).nullable(),
@@ -624,6 +625,7 @@ export const updateThreadRequestSchema = z
   .partial()
   .refine(
     (value) =>
+      value.providerId !== undefined ||
       value.title !== undefined ||
       value.sectionId !== undefined ||
       value.parentThreadId !== undefined ||

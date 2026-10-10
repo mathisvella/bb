@@ -446,3 +446,7 @@ Lifecycle ownership:
   recursively deletes them after runtime/storage cleanup. Failed cleanup retries
   durably. Unarchive the owner before explicitly restoring a dependent. Stop does
   not cascade. Sidebar parents and ordinary forks retain their existing policies.
+
+Switch an idle thread to another provider with `bb thread update <id> --provider <id> [--model <model>] [--reasoning-level <level>]`. The thread ID, workspace and visible history stay the same. The next provider session receives the prior conversation as context. Active turns and pending interactions must finish first. SDK callers use `sdk.threads.update({ threadId, providerId, model, reasoningLevel })`.
+
+A provider change starts a fresh provider session with the latest 200 stored message events (up to 100,000 characters) as context; the full visible BB history stays available. Messages and fork checkpoints before that provider change cannot be edited or resumed with the new provider.
