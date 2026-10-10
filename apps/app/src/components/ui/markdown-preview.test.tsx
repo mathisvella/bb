@@ -583,3 +583,36 @@ describe("MarkdownPreview", () => {
     ).toBe("This should remain a link");
   });
 });
+
+it("offers direct downloads and an interactive preview for HTML file results", () => {
+  const onOpenLink = vi.fn(() => true);
+  render(
+    <MarkdownPreview
+      content="[Mockup](/workspace/design.html) [Report](/workspace/report.pdf) [Website](https://example.com)"
+      linkRouting={{
+        localFile: {
+          absoluteLinks: { kind: "trusted-host" },
+          onOpenLink,
+          resolveDownloadUrl: ({ path }) =>
+            `/files?path=${encodeURIComponent(path)}`,
+        },
+      }}
+    />,
+  );
+  const download = screen.getByRole("link", { name: "Download design.html" });
+  expect(download.getAttribute("href")).toBe(
+    "/files?path=%2Fworkspace%2Fdesign.html",
+  );
+  expect(download.getAttribute("download")).toBe("design.html");
+  expect(
+    screen
+      .getByRole("link", { name: "Download report.pdf" })
+      .getAttribute("download"),
+  ).toBe("report.pdf");
+  expect(screen.queryByRole("link", { name: "Download Website" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Preview design.html" }));
+  expect(onOpenLink).toHaveBeenCalledWith({
+    path: "/workspace/design.html",
+    lineRange: null,
+  });
+});

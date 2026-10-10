@@ -341,6 +341,7 @@ function areMarkdownLocalFileLinkRoutingsEqual({
   if (previous === undefined || next === undefined) return false;
   return (
     previous.onOpenLink === next.onOpenLink &&
+    previous.resolveDownloadUrl === next.resolveDownloadUrl &&
     areMarkdownAbsoluteLocalFileLinkRoutingsEqual({
       next: next.absoluteLinks,
       previous: previous.absoluteLinks,
@@ -652,12 +653,42 @@ function MarkdownAnchor({
       ) : null}
     </RouteAnchor>
   );
+  const fileName = localFileLink?.path.split("/").at(-1) ?? "file";
+  const downloadUrl = localFileLink
+    ? localFileRouting?.resolveDownloadUrl?.(localFileLink)
+    : undefined;
+  const fileActions = downloadUrl ? (
+    <span className="inline-flex items-center gap-1">
+      {anchor}
+      {localFileLink && /\.html?$/iu.test(localFileLink.path) ? (
+        <button
+          type="button"
+          className="rounded px-1 text-file-accent hover:bg-state-hover"
+          onClick={() => onOpenLocalFileLink?.(localFileLink)}
+          aria-label={`Preview ${fileName}`}
+        >
+          Preview
+        </button>
+      ) : null}
+      <a
+        href={downloadUrl}
+        download={fileName}
+        aria-label={`Download ${fileName}`}
+        title={`Download ${fileName}`}
+        className="inline-flex rounded p-1 text-subtle-foreground hover:bg-state-hover hover:text-foreground"
+      >
+        <Icon name="Download" aria-hidden className="size-4" />
+      </a>
+    </span>
+  ) : (
+    anchor
+  );
   if (contextMenuItems === null || contextMenuItems.length === 0) {
-    return anchor;
+    return fileActions;
   }
   return (
     <ContextMenu>
-      <ContextMenuTrigger asChild>{anchor}</ContextMenuTrigger>
+      <ContextMenuTrigger asChild>{fileActions}</ContextMenuTrigger>
       <ContextMenuContent className="min-w-44">
         {contextMenuItems.map(renderMarkdownLocalFileContextMenuItem)}
       </ContextMenuContent>

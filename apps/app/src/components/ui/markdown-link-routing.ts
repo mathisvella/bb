@@ -44,6 +44,7 @@ export const MarkdownLocalFileContextMenuContext =
 export interface MarkdownLocalFileLinkRouting {
   absoluteLinks: MarkdownAbsoluteLocalFileLinkRouting;
   onOpenLink: MarkdownPreviewLocalFileLinkHandler;
+  resolveDownloadUrl?: (link: MarkdownPreviewLocalFileLink) => string;
   relativeLinks?: MarkdownRelativeLocalFileLinkRouting;
 }
 
