@@ -121,6 +121,26 @@ export default async function checkoutPlugin(bb: BbPluginApi): Promise<void> {
     return null;
   }
 
+  async function isCurrentBranch(args: {
+    hostId: string;
+    path: string;
+    branch: CheckoutBranchSelection;
+  }): Promise<boolean> {
+    if (args.branch.kind !== "existing") return false;
+    try {
+      const inspection = await host.call(
+        "inspectCheckout",
+        { path: args.path },
+        { hostId: args.hostId },
+      );
+      return inspection.isGitRepo &&
+        (inspection.checkout.kind === "branch" || inspection.checkout.kind === "unborn") &&
+        inspection.checkout.branchName === args.branch.name;
+    } catch {
+      return false;
+    }
+  }
+
   async function foreignEnvironmentAtPath(args: {
     hostId: string;
     path: string;
@@ -162,6 +182,9 @@ export default async function checkoutPlugin(bb: BbPluginApi): Promise<void> {
       if (branch === undefined) {
         return { action: "accept" };
       }
+      if (await isCurrentBranch({ hostId: context.host.id, path, branch })) {
+        return { action: "accept" };
+      }
       if (
         await otherLiveThreadUsesPath({
           hostId: context.host.id,
@@ -183,7 +206,11 @@ export default async function checkoutPlugin(bb: BbPluginApi): Promise<void> {
     async create(context) {
       const hostId = context.host.id;
       const path = context.inputs.path ?? context.projectCheckout.path;
-      const branchInput = context.inputs.branch;
+      const selectedBranch = context.inputs.branch;
+      const branchInput = selectedBranch !== undefined &&
+        await isCurrentBranch({ hostId, path, branch: selectedBranch })
+        ? undefined
+        : selectedBranch;
       const claimDeadline = Date.now() + ATTACH_TIMEOUT_MS;
       while (!(await context.experimental_claimPath(path))) {
         context.signal.throwIfAborted();
