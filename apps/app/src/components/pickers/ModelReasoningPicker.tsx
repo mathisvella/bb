@@ -458,7 +458,9 @@ export function ModelReasoningPicker({
       (isPreviewing ? previewSelection?.reasoningLevel : reasoningValue) ??
       "")
     : isPreviewing
-      ? ""
+      ? handoff !== undefined
+        ? (previewSelection?.reasoningLevel ?? "")
+        : ""
       : reasoningValue;
   const activeModelLoadError = isPreviewing
     ? (previewQuery.data?.modelLoadError ?? null)
@@ -678,6 +680,15 @@ export function ModelReasoningPicker({
         return;
       }
       if (isPreviewing && previewSelection?.selectedModel) {
+        if (handoff !== undefined) {
+          handoff.onSelect({
+            providerId: activeProviderId,
+            model: previewSelection.selectedModel,
+            reasoningLevel: level,
+          });
+          setMoreModelsOpen(false);
+          return;
+        }
         onModelChange(previewSelection.selectedModel);
       }
       onReasoningChange(level);
@@ -685,6 +696,8 @@ export function ModelReasoningPicker({
       setMoreModelsOpen(false);
     },
     [
+      activeProviderId,
+      handoff,
       handoffMode,
       isPreviewing,
       previewSelection,
@@ -754,17 +767,17 @@ export function ModelReasoningPicker({
     MODEL_CYCLE_COMMANDS,
     (index, { target }) => {
       if (!ownsCycleChord(target)) return false;
-      const options = handoffMode ? activeModelOptions : modelOptions;
-      const value =
-        handoffMode && isPreviewing
-          ? (previewSelection?.selectedModel ?? "")
-          : modelValue;
+      const options =
+        handoffMode || isPreviewing ? activeModelOptions : modelOptions;
+      const value = isPreviewing
+        ? (previewSelection?.selectedModel ?? "")
+        : modelValue;
       const next =
         index === 0
           ? nextCycleValue(options, value)
           : previousCycleValue(options, value);
       if (next !== null) {
-        if (handoffMode) {
+        if (handoffMode || isPreviewing) {
           handleModelSelect(next);
         } else {
           onModelChange(next);
@@ -808,15 +821,16 @@ export function ModelReasoningPicker({
     REASONING_CYCLE_COMMANDS,
     (index, { target }) => {
       if (!ownsCycleChord(target)) return false;
-      const value = handoffMode ? activeReasoningValue : reasoningValue;
+      const value =
+        handoffMode || isPreviewing ? activeReasoningValue : reasoningValue;
       if (value === "") return true;
       const next = cycleReasoningValue(
-        handoffMode ? activeReasoningOptions : reasoningOptions,
+        handoffMode || isPreviewing ? activeReasoningOptions : reasoningOptions,
         value,
         index === 0 ? "forward" : "backward",
       );
       if (next !== null) {
-        if (handoffMode) {
+        if (handoffMode || isPreviewing) {
           handleReasoningSelect(next);
         } else {
           onReasoningChange(next);

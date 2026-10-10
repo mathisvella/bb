@@ -972,10 +972,11 @@ describe("resolveSystemExecutionOptions", () => {
         });
         expect(response.models.map((model) => model.model)).toEqual([
           "claude-fable-5-1",
-          "claude-opus-5[1m]",
+          "claude-opus-5-5",
+          "claude-haiku-5-5",
           "claude-opus-4-8[1m]",
           "claude-opus-4-7[1m]",
-          "claude-sonnet-5",
+          "claude-sonnet-5-5",
           "claude-example-preview",
         ]);
         expect(response.selectedOnlyModels).toEqual([]);
@@ -1104,16 +1105,17 @@ describe("resolveSystemExecutionOptions", () => {
       });
       expect(response.models.map((model) => model.model)).toEqual([
         "claude-fable-5-1",
-        "claude-opus-5[1m]",
+        "claude-opus-5-5",
+        "claude-haiku-5-5",
         "claude-opus-4-8[1m]",
         "claude-opus-4-7[1m]",
-        "claude-sonnet-5",
+        "claude-sonnet-5-5",
       ]);
       expect(
         response.models
           .filter((model) => model.isDefault)
           .map((model) => model.model),
-      ).toEqual(["claude-opus-5[1m]"]);
+      ).toEqual(["claude-opus-5-5"]);
     });
   });
 

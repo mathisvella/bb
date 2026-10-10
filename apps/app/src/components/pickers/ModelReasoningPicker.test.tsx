@@ -1226,3 +1226,46 @@ it("selects another provider in place without entering the new-thread handoff", 
   });
   expect(screen.queryByRole("button", { name: "Exit handoff" })).toBeNull();
 });
+
+it("switches the provider when selecting reasoning from its preview", async () => {
+  const onSelect = vi.fn();
+  const { onModelChange, onReasoningChange } = renderPicker({
+    handoff: {
+      sourceProviderId: "codex",
+      active: false,
+      onStart: vi.fn(),
+      onExit: vi.fn(),
+      onSelect,
+    },
+    alternateProviderModels: [
+      {
+        ...availableModel({
+          value: "claude-opus-4-7",
+          label: "Claude Opus 4.7",
+          isDefault: true,
+        }),
+        supportedReasoningEfforts: [
+          { reasoningEffort: "medium", description: "Medium" },
+          { reasoningEffort: "high", description: "High" },
+        ],
+      },
+    ],
+  });
+  fireEvent.click(
+    screen.getByRole("button", { name: "Provider, model and reasoning" }),
+  );
+  fireEvent.click(screen.getByTitle("Claude Code"));
+  await screen.findByText("Opus 4.7");
+  act(() => {
+    commandHandlers.get("modelPicker.cycleReasoning")?.({
+      target: document.body,
+    });
+  });
+  expect(onSelect).toHaveBeenCalledExactlyOnceWith({
+    providerId: "claude-code",
+    model: "claude-opus-4-7",
+    reasoningLevel: "high",
+  });
+  expect(onModelChange).not.toHaveBeenCalled();
+  expect(onReasoningChange).not.toHaveBeenCalled();
+});

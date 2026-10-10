@@ -17,6 +17,7 @@ import {
   seedThread,
   seedThreadRuntimeState,
   seedQueuedMessage,
+  seedTurnStarted,
 } from "../helpers/seed.js";
 import { withTestHarness, type TestAppHarness } from "../helpers/test-app.js";
 
@@ -188,22 +189,33 @@ describe("provider changes in an existing thread", () => {
     });
   });
 
-  it("refuses provider-native forks before the provider change", async () => {
-    await withTestHarness(async (harness) => {
-      const { thread } = fixture(harness);
-      expect(
-        (await patch(harness, thread.id, { providerId: "claude-code" })).status,
-      ).toBe(200);
-      const changed = getThread(harness.db, thread.id);
-      if (!changed) throw new Error("Expected the existing thread");
-      expect(() =>
-        resolveThreadForkPoint(harness.deps, {
-          sourceThread: changed,
-          sourceSeqEnd: 2,
-        }),
-      ).toThrow("previous provider session");
-    });
-  });
+  it.each([2, 4, 5, 100])(
+    "refuses provider-native forks resolving to the retired session at sequence %s",
+    async (sourceSeqEnd) => {
+      await withTestHarness(async (harness) => {
+        const { thread } = fixture(harness);
+        seedTurnStarted(harness.deps, {
+          threadId: thread.id,
+          environmentId: thread.environmentId,
+          providerThreadId: "old-codex-session",
+          turnId: "retired-turn",
+          sequence: 3,
+        });
+        expect(
+          (await patch(harness, thread.id, { providerId: "claude-code" }))
+            .status,
+        ).toBe(200);
+        const changed = getThread(harness.db, thread.id);
+        if (!changed) throw new Error("Expected the existing thread");
+        expect(() =>
+          resolveThreadForkPoint(harness.deps, {
+            sourceThread: changed,
+            sourceSeqEnd,
+          }),
+        ).toThrow("previous provider session");
+      });
+    },
+  );
 
   it.each(["active", "invalid model", "unknown provider"])(
     "leaves the thread and old session untouched on %s",

@@ -108,6 +108,11 @@ function resolveAnchoredForkPoint(
       `Cannot fork at sequence ${args.sourceSeqEnd}: no turn has started at or before it`,
     );
   }
+  if (switchSequence !== null && anchor.sequence <= switchSequence) {
+    forkPointUnavailable(
+      "Cannot fork a checkpoint from a previous provider session; choose a turn after the provider change",
+    );
+  }
   const completion = readTurnCompletion(deps, {
     threadId: args.sourceThread.id,
     turnId: anchor.turnId,
@@ -115,6 +120,11 @@ function resolveAnchoredForkPoint(
   if (completion === null) {
     forkPointUnavailable(
       `Cannot fork at sequence ${args.sourceSeqEnd}: the turn containing it has not completed`,
+    );
+  }
+  if (switchSequence !== null && completion.sequence <= switchSequence) {
+    forkPointUnavailable(
+      "Cannot fork a checkpoint from a previous provider session; choose a turn after the provider change",
     );
   }
   if (completion.event.providerThreadId === null) {
@@ -214,6 +224,16 @@ export function resolveThreadForkPoint(
   if (
     lastCompletedTurn === null ||
     !deps.providerRegistry.supportsSessionRewind(args.sourceThread.providerId)
+  ) {
+    return tip;
+  }
+  const switchSequence = latestProviderSwitchSequence(
+    deps,
+    args.sourceThread.id,
+  );
+  if (
+    switchSequence !== null &&
+    lastCompletedTurn.completedSequence <= switchSequence
   ) {
     return tip;
   }

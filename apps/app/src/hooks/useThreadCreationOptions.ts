@@ -459,7 +459,9 @@ export function useThreadCreationOptions(
         .filter((p) => p.experimental_picker?.hidden !== true)
         .map((p) => ({
           value: p.id,
-          family: p.experimental_picker?.group ?? p.id,
+          ...(p.experimental_picker?.group === undefined
+            ? {}
+            : { family: p.experimental_picker.group }),
           label: p.displayName,
           icon: getProviderIconInfo("agent", p.id, p)?.icon,
           ...(p.strings?.brandPrefix === undefined
