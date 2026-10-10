@@ -459,12 +459,14 @@ it("deduplicates the same Claude identity across sources and machines while pres
   });
   try {
     plugin(host.bb);
-    const snapshot = usageSnapshotSchema.parse(await host.harness.behavior.callRpc("getUsage", {
-      force: false,
-      machineIds: null,
-      providerId: null,
-      maxAgeMs: 60_000,
-    }));
+    const snapshot = usageSnapshotSchema.parse(
+      await host.harness.behavior.callRpc("getUsage", {
+        force: false,
+        machineIds: null,
+        providerId: null,
+        maxAgeMs: 60_000,
+      }),
+    );
     const accounts = snapshot.machines.flatMap((machine) => machine.providers);
     expect(accounts.map((account) => account.id)).toEqual([
       "pool:same",
