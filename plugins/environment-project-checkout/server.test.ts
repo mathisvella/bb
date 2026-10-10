@@ -133,6 +133,21 @@ describe("checkout provider validate", () => {
     expect(decision).toEqual({ action: "accept" });
   });
 
+  it("accepts the current branch while another thread is active and the checkout is dirty", async () => {
+    const decision = await validateWith({
+      environments: [environmentAt(CHECKOUT_PATH)],
+      threads: [{ id: "thr_other", environmentId: "env_1", status: "active" }],
+      inputs: { branch: { kind: "existing", name: "main" } },
+      inspectCheckout: () => ({
+        isGitRepo: true,
+        checkout: { kind: "branch", branchName: "main", headSha: "abc123" },
+        hasUncommittedChanges: true,
+        operation: { kind: "none" },
+      }),
+    });
+    expect(decision).toEqual({ action: "accept" });
+  });
+
   it("refuses a branch switch while another project's thread is idle on the checkout", async () => {
     const decision = await validateWith({
       environments: [environmentAt(CHECKOUT_PATH)],
@@ -279,6 +294,44 @@ describe("checkout provider validate", () => {
   });
 });
 
+it("attaches to the current branch without switching while another thread is live", async () => {
+  const hostCall = vi.fn((call: { method: string }) => {
+    if (call.method === "inspectCheckout") return {
+      isGitRepo: true,
+      checkout: { kind: "branch", branchName: "main", headSha: "abc123" },
+      hasUncommittedChanges: true,
+      operation: { kind: "none" },
+    };
+    if (call.method === "attach") return { status: "attached", path: CHECKOUT_PATH, branchName: "main" };
+    throw new Error("Unexpected host method");
+  });
+  const { bb, harness } = createFakePluginHost({
+    pluginId: "environment-project-checkout",
+    experimental_callHostRpc: hostCall,
+    sdk: {
+      environments: { list: () => [environmentAt(CHECKOUT_PATH)] },
+      threads: { list: () => [{ id: "other", environmentId: "env_1", status: "active" }] },
+    },
+  });
+  try {
+    await plugin(bb);
+    const provider = harness.registrations.environmentProviders.get(PROJECT_CHECKOUT_ENVIRONMENT_PROVIDER_ID);
+    if (!provider) throw new Error("Missing provider");
+    const result = await provider.create({
+      project: PROJECT, host: HOST,
+      projectCheckout: { path: CHECKOUT_PATH, experimental_ownsPath: false },
+      gitRemote: null, inputs: { branch: { kind: "existing", name: "main" } },
+      thread: makeThreadResponse(), suggestedBranchName: "bb/test", attempt: 1,
+      pathKey: "current", rebuild: false, experimental_claimPath: async () => true,
+      previous: null, report: { step() {}, log() {} }, signal: new AbortController().signal,
+    });
+    expect(result.status).toBe("created");
+    expect(hostCall).toHaveBeenCalledWith(expect.objectContaining({ method: "attach" }));
+  } finally {
+    await harness.lifecycle.dispose();
+  }
+});
+
 it.each([false, true])(
   "reports source ownership %s to core's hook policy",
   async (owned) => {
@@ -375,7 +428,7 @@ it.each(["branch", "timeout", "abort"] as const)(
           message: "Workspace is being prepared by another thread",
         });
       }
-      expect(hostCall).not.toHaveBeenCalled();
+      expect(hostCall).not.toHaveBeenCalledWith(expect.objectContaining({ method: "attach" }));
       if (mode === "branch") expect(claim).toHaveBeenCalledTimes(1);
     } finally {
       vi.useRealTimers();
