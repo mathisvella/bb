@@ -475,6 +475,16 @@ function isMarkdownAppRouteHref({ href }: IsMarkdownAppRouteHrefArgs): boolean {
   );
 }
 
+function resolveFilePreviewHref(href: string | undefined): string | undefined {
+  if (
+    href?.startsWith("/api/v1/file-previews/") &&
+    typeof window !== "undefined"
+  ) {
+    return new URL(href, window.location.origin).href;
+  }
+  return href;
+}
+
 function resolveMarkdownLocalFileTarget(
   value: string,
   absolute: MarkdownAbsoluteLocalFileLinkRouting,
@@ -521,6 +531,9 @@ function buildLocalAwareUrlTransform({
   localImageRouting,
 }: BuildLocalAwareUrlTransformArgs): UrlTransform {
   return (value, key, node) => {
+    if (value.startsWith("/api/v1/file-previews/")) {
+      return resolveFilePreviewHref(value) ?? value;
+    }
     if (key === "href" && localFileRouting !== undefined) {
       const localFile = resolveMarkdownLocalFileTarget(
         value,
@@ -594,7 +607,7 @@ function MarkdownAnchor({
     currentHostname:
       typeof window === "undefined" ? undefined : window.location.hostname,
     enabled: rewriteLocalhostLinks ?? false,
-    href,
+    href: resolveFilePreviewHref(href),
   });
   const isAppRouteHref = isMarkdownAppRouteHref({ href: rewrittenHref });
   const localFileLink =

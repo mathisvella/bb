@@ -616,3 +616,38 @@ it("offers direct downloads and an interactive preview for HTML file results", (
     lineRange: null,
   });
 });
+
+it("opens BB file preview addresses as web URLs instead of host files", () => {
+  const href =
+    "/api/v1/file-previews/604019a6-c1fb-4e39-bea2-15d0d42452dc/index.html";
+  const onOpenLink = vi.fn(() => true);
+  const onOpenLocalFile = vi.fn(() => true);
+  const resolveDownloadUrl = vi.fn(() => "/wrong-host-file");
+  render(
+    <MarkdownPreview
+      content={`[Mockup](${href})\n\n![Preview](${href.replace("index.html", "preview.png")})`}
+      linkRouting={{
+        onOpenLink,
+        localFile: {
+          absoluteLinks: { kind: "trusted-host" },
+          onOpenLink: onOpenLocalFile,
+          resolveDownloadUrl,
+        },
+        localImage: {
+          absolutePaths: { kind: "trusted-host" },
+          resolveSrc: () => "/wrong-host-image",
+        },
+      }}
+    />,
+  );
+  const expectedHref = new URL(href, window.location.origin).href;
+  const link = screen.getByRole("link", { name: "Mockup" });
+  expect(link.getAttribute("href")).toBe(expectedHref);
+  fireEvent.click(link);
+  expect(onOpenLink).toHaveBeenCalledWith({ href: expectedHref });
+  expect(onOpenLocalFile).not.toHaveBeenCalled();
+  expect(resolveDownloadUrl).not.toHaveBeenCalled();
+  expect(screen.getByRole("img", { name: "Preview" }).getAttribute("src")).toBe(
+    expectedHref.replace("index.html", "preview.png"),
+  );
+});
