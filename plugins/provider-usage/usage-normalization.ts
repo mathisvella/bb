@@ -48,6 +48,7 @@ export function normalizeUsageMeasurement(
 type Identity = {
   providerId: string;
   accountKey?: string | null;
+  usageStatus?: string;
   scope: { kind: "shared" | "host" };
 };
 
@@ -63,7 +64,12 @@ export function selectUsageResources<T>(
       result.push(resource);
       continue;
     }
-    const key = JSON.stringify([identity.providerId, identity.accountKey]);
+    const issuer = /^(anthropic:account:|openai:chatgpt:)/u.test(
+      identity.accountKey,
+    )
+      ? "provider-issued"
+      : identity.providerId;
+    const key = JSON.stringify([issuer, identity.accountKey]);
     const index = known.get(key);
     if (index === undefined) {
       known.set(key, result.length);
@@ -74,7 +80,21 @@ export function selectUsageResources<T>(
     )
       result[index] = resource;
   }
-  return result;
+  const connectedProviders = new Set(
+    result
+      .filter((resource) => identify(resource).usageStatus === "ok")
+      .map((resource) => identify(resource).providerId),
+  );
+  return result.filter((resource) => {
+    const identity = identify(resource);
+    return (
+      identity.accountKey ||
+      !["unauthenticated", "not_installed"].includes(
+        identity.usageStatus ?? "",
+      ) ||
+      !connectedProviders.has(identity.providerId)
+    );
+  });
 }
 
 export function usageProviderGroupId(

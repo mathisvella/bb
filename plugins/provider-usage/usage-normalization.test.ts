@@ -6,6 +6,52 @@ import {
 } from "./usage-normalization.js";
 import { usageMeasurementSchema } from "./usage-source-contract.js";
 
+it("deduplicates provider-issued account identities across custom adapters", () => {
+  const pool = {
+    providerId: "claude-code",
+    accountKey: "anthropic:account:123",
+    scope: { kind: "shared" as const },
+  };
+  const adapter = {
+    ...pool,
+    providerId: "claude-second-account",
+    scope: { kind: "host" as const },
+  };
+  const other = { ...pool, accountKey: "anthropic:account:456" };
+  expect(
+    selectUsageResources([adapter, pool, other], (resource) => resource),
+  ).toEqual([pool, other]);
+});
+
+it("hides unidentified sign-in placeholders only when the provider has connected accounts", () => {
+  const placeholder = {
+    providerId: "claude-code",
+    accountKey: null,
+    usageStatus: "unauthenticated",
+    scope: { kind: "host" as const },
+  };
+  const account = {
+    ...placeholder,
+    accountKey: "anthropic:account:123",
+    usageStatus: "ok",
+    scope: { kind: "shared" as const },
+  };
+  const expired = {
+    ...account,
+    accountKey: "anthropic:account:456",
+    usageStatus: "expired",
+  };
+  expect(
+    selectUsageResources(
+      [placeholder, account, expired],
+      (resource) => resource,
+    ),
+  ).toEqual([account, expired]);
+  expect(selectUsageResources([placeholder], (resource) => resource)).toEqual([
+    placeholder,
+  ]);
+});
+
 it("merges only matching provider-issued identities, preferring shared observations without summing limits", () => {
   const host = {
     id: "machine",
