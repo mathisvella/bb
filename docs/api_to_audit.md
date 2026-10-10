@@ -3202,3 +3202,7 @@ remain forbidden. New-machine selections continue through creation.
 
 Stabilization requires lifecycle coverage for reuse, missing paths, cleanup in
 progress, cross-project ownership, and concurrent creation before binding.
+
+## `PluginProviderDeclaration.experimental_picker`
+
+Optional `{ hidden?: boolean, group?: string }` display metadata. `hidden` omits a provider from model pickers while leaving its configuration, health, SDK/CLI access and existing threads intact. `group` places distinct provider/account IDs under a single labeled tab. The server validates and returns the metadata without changing daemon commands. Audit account selection, keyboard navigation, persisted hidden selections and third-party registrations before stabilization.

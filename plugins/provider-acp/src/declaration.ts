@@ -44,6 +44,9 @@ export function acpProviderDeclaration(
 ): PluginProviderDeclaration {
   return {
     id: agent.id,
+    ...(agent.id === "acp-cursor"
+      ? { experimental_picker: { hidden: true } }
+      : {}),
     displayName: agent.displayName,
     family: ACP_FAMILY,
     ...(agent.icon === undefined ? {} : { icon: agent.icon }),

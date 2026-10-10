@@ -241,6 +241,10 @@ vi.mock("@/hooks/mutations/thread-runtime-mutations", () => {
 });
 
 vi.mock("@/hooks/mutations/thread-state-mutations", () => ({
+  useUpdateThread: () => ({
+    isPending: false,
+    mutateAsync: vi.fn().mockResolvedValue({}),
+  }),
   useUnarchiveThread: () => ({
     isPending: false,
     mutate: vi.fn(),

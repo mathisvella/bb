@@ -50,6 +50,7 @@ import { listRunningThreadsWithIntendedHosts } from "../../services/threads/disp
 import { dispatchThreadRenameCommand } from "../../services/threads/thread-commands.js";
 import { requestThreadStorageDeletion } from "../../services/threads/thread-lifecycle.js";
 import { createThreadFromRequest } from "../../services/threads/thread-create.js";
+import { switchThreadProvider } from "../../services/threads/thread-provider-switch.js";
 import { createThreadForkFromRequest } from "../../services/threads/thread-fork.js";
 import { requireChildThreadsConfirmation } from "../../services/threads/child-thread-confirmation.js";
 import {
@@ -378,7 +379,10 @@ export function registerThreadBaseRoutes(app: Hono, deps: AppDeps): void {
   });
 
   patch(routes.update, async (context, payload) => {
-    const thread = requirePublicThread(deps.db, context.req.param("id"));
+    let thread = requirePublicThread(deps.db, context.req.param("id"));
+    const providerChanged =
+      payload.providerId !== undefined &&
+      payload.providerId !== thread.providerId;
     if (payload.parentThreadId) {
       assertValidParentThread(deps, {
         childThreadId: thread.id,
@@ -386,7 +390,19 @@ export function registerThreadBaseRoutes(app: Hono, deps: AppDeps): void {
       });
     }
 
-    if ("model" in payload || "reasoningLevel" in payload) {
+    if (payload.sectionId) requireThreadSection(deps, payload.sectionId);
+    if (providerChanged && payload.providerId !== undefined) {
+      thread = await switchThreadProvider(deps, {
+        thread,
+        providerId: payload.providerId,
+        model: payload.model,
+        reasoningLevel: payload.reasoningLevel,
+      });
+    }
+    if (
+      !providerChanged &&
+      ("model" in payload || "reasoningLevel" in payload)
+    ) {
       await applyThreadExecutionOverride(deps, {
         thread,
         patch: {

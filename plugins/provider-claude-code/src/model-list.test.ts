@@ -37,18 +37,21 @@ const DISCOVERED_MODELS: ModelInfo[] = [
 
 const CURATED_MODELS = [
   "claude-fable-5-1",
-  "claude-opus-5[1m]",
+  "claude-opus-5-5",
+  "claude-haiku-5-5",
   "claude-opus-4-8[1m]",
   "claude-opus-4-7[1m]",
-  "claude-sonnet-5",
+  "claude-sonnet-5-5",
 ];
 
 describe("buildClaudeCodeModels", () => {
-  it("always offers the curated catalog and appends discovered extras", () => {
+  it("uses the discovered catalog without advertising unavailable curated models", () => {
     const result = buildClaudeCodeModels(DISCOVERED_MODELS);
 
     expect(result.models.map((model) => model.model)).toEqual([
-      ...CURATED_MODELS,
+      "claude-opus-5[1m]",
+      "claude-fable-5-1",
+      "claude-sonnet-5",
       "claude-haiku-4-5-20251001",
     ]);
     expect(result.models.find((model) => model.isDefault)?.model).toBe(
@@ -71,7 +74,7 @@ describe("buildClaudeCodeModels", () => {
 
     expect(result.models.map((model) => model.model)).toEqual(CURATED_MODELS);
     expect(result.models.find((model) => model.isDefault)?.model).toBe(
-      "claude-opus-5[1m]",
+      "claude-opus-5-5",
     );
     expect(result.selectedOnlyModels).toEqual([]);
   });
@@ -89,14 +92,13 @@ describe("buildClaudeCodeModels", () => {
     ]);
 
     expect(result.models.map((model) => model.model)).toEqual([
-      ...CURATED_MODELS,
       "claude-future-6",
     ]);
     expect(result.models.at(-1)).toEqual(
       expect.objectContaining({
         model: "claude-future-6",
         displayName: "Future 6",
-        isDefault: false,
+        isDefault: true,
         defaultReasoningEffort: "high",
       }),
     );

@@ -572,8 +572,7 @@ async function startBridgeThread(args: StartBridgeThreadArgs): Promise<void> {
   args.bridge.sendRequest(1, "thread/start", {
     cwd: "/tmp/worktree",
     instructionMode: "append",
-    options: canonicalOptions({
-    }),
+    options: canonicalOptions({}),
     threadId: args.threadId,
   });
   await args.bridge.waitForResponse(1);
@@ -2362,11 +2361,6 @@ describe("bridge", () => {
       PATH: binDir,
     });
     expect(models.map((model) => model.model)).toEqual([
-      "claude-fable-5-1",
-      "claude-opus-5[1m]",
-      "claude-opus-4-8[1m]",
-      "claude-opus-4-7[1m]",
-      "claude-sonnet-5",
       "claude-opus-5-5",
       "claude-sonnet-5-5",
     ]);

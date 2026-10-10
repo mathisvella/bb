@@ -16,6 +16,41 @@ describe("bb thread update command output", () => {
   const register: CommandRegistrar = (program) =>
     registerThreadCommands(program, () => "http://server");
 
+  it("switches provider and model on the existing thread", async () => {
+    const patch = vi.fn(async () =>
+      fixtures.makeThread({
+        id: "thread-provider",
+        projectId: "proj-1",
+        providerId: "claude-code",
+      }),
+    );
+    stubServerApi({ "v1.threads.:id.$patch": patch });
+
+    await runCommand(
+      [
+        "thread",
+        "update",
+        "thread-provider",
+        "--provider",
+        "claude-code",
+        "--model",
+        "claude-sonnet-5-5",
+        "--reasoning-level",
+        "high",
+      ],
+      register,
+    );
+
+    expect(patch).toHaveBeenCalledWith({
+      param: { id: "thread-provider" },
+      json: {
+        providerId: "claude-code",
+        model: "claude-sonnet-5-5",
+        reasoningLevel: "high",
+      },
+    });
+  });
+
   it("bb thread update sets the parent thread id", async () => {
     const thread: domain.Thread = fixtures.makeThread({
       id: "thread-update-1",

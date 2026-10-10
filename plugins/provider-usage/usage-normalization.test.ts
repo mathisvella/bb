@@ -1,6 +1,7 @@
 import { expect, it } from "vitest";
 import {
   normalizeUsageMeasurement,
+  usageProviderGroupId,
   selectUsageResources,
 } from "./usage-normalization.js";
 import { usageMeasurementSchema } from "./usage-source-contract.js";
@@ -93,4 +94,10 @@ it("normalizes structured plans and windows while retaining custom provider labe
       ],
     },
   });
+});
+
+it("groups declared Claude variants while keeping unrelated providers distinct", () => {
+  expect(usageProviderGroupId("claude-code")).toBe("claude-code");
+  expect(usageProviderGroupId("second-account", "claude")).toBe("claude-code");
+  expect(usageProviderGroupId("custom")).toBe("custom");
 });

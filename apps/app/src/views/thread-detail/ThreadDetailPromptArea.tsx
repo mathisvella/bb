@@ -105,7 +105,10 @@ import {
   useClearThreadGoal,
   useStopThread,
 } from "@/hooks/mutations/thread-runtime-mutations";
-import { useUnarchiveThread } from "@/hooks/mutations/thread-state-mutations";
+import {
+  useUpdateThread,
+  useUnarchiveThread,
+} from "@/hooks/mutations/thread-state-mutations";
 import {
   getLatestPendingInteraction,
   useThreadQueuedMessages,
@@ -499,6 +502,7 @@ export function ThreadDetailPromptArea({
   const clearThreadGoal = useClearThreadGoal();
   const unarchiveThread = useUnarchiveThread();
   const createThread = useCreateThread();
+  const updateThread = useUpdateThread();
   const projectName = useProjectDisplayName(
     thread.projectId === PERSONAL_PROJECT_ID ? undefined : thread.projectId,
   );
@@ -806,20 +810,52 @@ export function ThreadDetailPromptArea({
       if (fallbackIdentity !== null) {
         setOverriddenFallbackIdentity(fallbackIdentity);
       }
-      beginHandoff();
-      setSelectedProviderId(providerId);
+      if (isHandoffSelection) {
+        setSelectedProviderId(providerId);
+        return;
+      }
+      void updateThread
+        .mutateAsync({ id: thread.id, providerId })
+        .then(() => {
+          setSelectedProviderId(providerId);
+        })
+        .catch(() => {});
     },
-    [fallbackIdentity, selectedProviderId, setSelectedProviderId, beginHandoff],
+    [
+      fallbackIdentity,
+      selectedProviderId,
+      setSelectedProviderId,
+      updateThread,
+      thread.id,
+      isHandoffSelection,
+    ],
   );
   const handleHandoffSelect = useCallback(
     (selection: ModelReasoningPickerHandoffSelection) => {
       if (fallbackIdentity !== null) {
         setOverriddenFallbackIdentity(fallbackIdentity);
       }
-      beginHandoff();
-      setProviderModelReasoning(selection);
+      if (isHandoffSelection) {
+        setProviderModelReasoning(selection);
+      } else if (selection.providerId !== thread.providerId) {
+        void updateThread
+          .mutateAsync({ id: thread.id, ...selection })
+          .then(() => {
+            setProviderModelReasoning(selection);
+          })
+          .catch(() => {});
+      } else {
+        setProviderModelReasoning(selection);
+      }
     },
-    [beginHandoff, fallbackIdentity, setProviderModelReasoning],
+    [
+      isHandoffSelection,
+      fallbackIdentity,
+      setProviderModelReasoning,
+      updateThread,
+      thread.id,
+      thread.providerId,
+    ],
   );
   useEffect(() => {
     if (isHandoffSelection) {
@@ -902,6 +938,7 @@ export function ThreadDetailPromptArea({
     sendMessage.isPending ||
     createQueuedMessage.isPending ||
     createThread.isPending ||
+    updateThread.isPending ||
     isFollowUpShortcutSending;
   const handleStopThread = useCallback(() => {
     stopThread.mutate(thread.id);

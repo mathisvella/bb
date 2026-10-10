@@ -1,3 +1,4 @@
+import { latestProviderSwitchSequence } from "./thread-provider-context.js";
 import {
   copyStoredThreadEventsInTransaction,
   findLastCompletedRootStoredTurn,
@@ -89,6 +90,15 @@ function resolveAnchoredForkPoint(
   deps: Pick<AppDeps, "db" | "providerRegistry">,
   args: { sourceSeqEnd: number; sourceThread: Thread },
 ): ThreadForkPoint {
+  const switchSequence = latestProviderSwitchSequence(
+    deps,
+    args.sourceThread.id,
+  );
+  if (switchSequence !== null && args.sourceSeqEnd < switchSequence) {
+    forkPointUnavailable(
+      "Cannot fork a checkpoint from a previous provider session; choose a turn after the provider change",
+    );
+  }
   const anchor = findLastRootStoredTurnStarted(deps.db, {
     atOrBeforeSequence: args.sourceSeqEnd,
     threadId: args.sourceThread.id,

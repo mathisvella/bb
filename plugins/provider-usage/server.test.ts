@@ -1,3 +1,4 @@
+import { usageSnapshotSchema } from "./usage-schema.js";
 import { expect, it, vi } from "vitest";
 import {
   createFakePluginHost,
@@ -416,6 +417,65 @@ it("hides Cursor without fetching it and can reveal it through plugin settings",
     expect(
       rpc.mock.calls.some(([args]) => args.method === usageFetchMethod),
     ).toBe(true);
+  } finally {
+    await host.harness.lifecycle.dispose();
+  }
+});
+
+it("deduplicates the same Claude identity across sources and machines while preserving distinct accounts", async () => {
+  const host = createFakePluginHost({
+    pluginId: "provider-usage",
+    sdk: {
+      system: { config: async () => ({ primaryHostId: null }) },
+      hosts: {
+        list: async () => [makeHostResponse({ id: "host", name: "Machine" })],
+      },
+      providers: {
+        list: async () => [
+          { id: "claude-code", displayName: "Claude Code", logoUrl: null },
+        ],
+      },
+      plugins: {
+        experimental_discoverRpc: async () => [
+          { pluginId: "local", displayName: "Local" },
+          { pluginId: "pool", displayName: "Pool" },
+        ],
+        callRpc: async ({ pluginId }) => ({
+          resources: (pluginId === "local" ? ["same"] : ["same", "other"]).map(
+            (id) => ({
+              id,
+              providerId: "claude-code",
+              accountKey: `anthropic:account:${id}`,
+              label: "same@example.com",
+              scope:
+                pluginId === "local"
+                  ? { kind: "host", hostId: "host", hostName: "Machine" }
+                  : { kind: "shared" },
+            }),
+          ),
+        }),
+      },
+    },
+  });
+  try {
+    plugin(host.bb);
+    const snapshot = usageSnapshotSchema.parse(await host.harness.behavior.callRpc("getUsage", {
+      force: false,
+      machineIds: null,
+      providerId: null,
+      maxAgeMs: 60_000,
+    }));
+    const accounts = snapshot.machines.flatMap((machine) => machine.providers);
+    expect(accounts.map((account) => account.id)).toEqual([
+      "pool:same",
+      "pool:other",
+    ]);
+    expect(
+      accounts.every((account) => account.providerId === "claude-code"),
+    ).toBe(true);
+    expect(accounts.every((account) => account.displayName === "Claude")).toBe(
+      true,
+    );
   } finally {
     await host.harness.lifecycle.dispose();
   }

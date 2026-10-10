@@ -455,20 +455,23 @@ export function useThreadCreationOptions(
 
   const providerOptions = useMemo(
     (): ProviderPickerOption[] =>
-      providers.map((p) => ({
-        value: p.id,
-        label: p.displayName,
-        icon: getProviderIconInfo("agent", p.id, p)?.icon,
-        ...(p.strings?.brandPrefix === undefined
-          ? {}
-          : { brandPrefix: p.strings.brandPrefix }),
-        ...(p.strings?.planModeCopy === undefined
-          ? {}
-          : { planModeCopy: p.strings.planModeCopy }),
-        ...(p.strings?.installUrl === undefined
-          ? {}
-          : { installUrl: p.strings.installUrl }),
-      })),
+      providers
+        .filter((p) => p.experimental_picker?.hidden !== true)
+        .map((p) => ({
+          value: p.id,
+          family: p.experimental_picker?.group ?? p.id,
+          label: p.displayName,
+          icon: getProviderIconInfo("agent", p.id, p)?.icon,
+          ...(p.strings?.brandPrefix === undefined
+            ? {}
+            : { brandPrefix: p.strings.brandPrefix }),
+          ...(p.strings?.planModeCopy === undefined
+            ? {}
+            : { planModeCopy: p.strings.planModeCopy }),
+          ...(p.strings?.installUrl === undefined
+            ? {}
+            : { installUrl: p.strings.installUrl }),
+        })),
     [providers],
   );
 

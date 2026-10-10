@@ -4,6 +4,7 @@ import { PI_NATIVE_ROOTS_DECLARATION } from "./native-roots.js";
 export function piProviderDeclaration(): PluginProviderDeclaration {
   return {
     id: "pi",
+    experimental_picker: { hidden: true },
     displayName: "Pi",
     icon: "./icons/pi.svg",
     strings: {

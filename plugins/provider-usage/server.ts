@@ -1,5 +1,6 @@
 import {
   normalizeUsageMeasurement,
+  usageProviderGroupId,
   selectUsageResources,
 } from "./usage-normalization.js";
 import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";
@@ -130,11 +131,21 @@ function resourceProvider(
   );
   return {
     ...normalizedProvider(
-      metadata ?? {
-        id: resource.providerId,
-        displayName: resource.providerId,
-        logoUrl: null,
-      },
+      metadata
+        ? {
+            ...metadata,
+            id: usageProviderGroupId(metadata.id, metadata.family),
+            displayName:
+              usageProviderGroupId(metadata.id, metadata.family) ===
+              "claude-code"
+                ? "Claude"
+                : metadata.displayName,
+          }
+        : {
+            id: resource.providerId,
+            displayName: resource.providerId,
+            logoUrl: null,
+          },
       measurement?.usage,
     ),
     ...(resource.scope.kind === "shared"
@@ -279,9 +290,14 @@ export default function providerUsagePlugin(bb: BbPluginApi): void {
               ? `source:${source.pluginId}`
               : resource.scope.hostId;
           return (
+            resource.providerId !== "pi" &&
             (preferences.showCursor || resource.providerId !== "acp-cursor") &&
             request.providerId !== null &&
-            resource.providerId === request.providerId &&
+            usageProviderGroupId(
+              resource.providerId,
+              providers.find((provider) => provider.id === resource.providerId)
+                ?.family,
+            ) === request.providerId &&
             (request.machineIds === null ||
               request.machineIds.includes(machineId)) &&
             (resource.scope.kind === "shared" ||
@@ -343,7 +359,10 @@ export default function providerUsagePlugin(bb: BbPluginApi): void {
           error: source.error,
         });
       for (const resource of source.resources) {
-        if (!preferences.showCursor && resource.providerId === "acp-cursor")
+        if (
+          resource.providerId === "pi" ||
+          (!preferences.showCursor && resource.providerId === "acp-cursor")
+        )
           continue;
         const machineId =
           resource.scope.kind === "shared"
@@ -352,26 +371,31 @@ export default function providerUsagePlugin(bb: BbPluginApi): void {
         candidates.push({ source, resource, machineId });
       }
     }
-    for (const machine of machines) {
-      const visible = selectUsageResources(
-        candidates.filter((candidate) => candidate.machineId === machine.id),
-        ({ source, resource }) => ({
-          ...resource,
-          accountKey: measurements.has(keyOf(source.pluginId, resource.id))
-            ? measurements.get(keyOf(source.pluginId, resource.id))!.value
-                .accountKey
-            : resource.accountKey,
-        }),
+    const visible = selectUsageResources(
+      candidates,
+      ({ source, resource }) => ({
+        ...resource,
+        providerId: usageProviderGroupId(
+          resource.providerId,
+          providers.find((provider) => provider.id === resource.providerId)
+            ?.family,
+        ),
+        accountKey: measurements.has(keyOf(source.pluginId, resource.id))
+          ? (measurements.get(keyOf(source.pluginId, resource.id))!.value
+              .accountKey ?? resource.accountKey)
+          : resource.accountKey,
+      }),
+    );
+    for (const { source, resource, machineId } of visible) {
+      const machine = machines.find((candidate) => candidate.id === machineId);
+      if (!machine) continue;
+      const key = keyOf(source.pluginId, resource.id);
+      const cached = measurements.get(key);
+      machine.providers.push(
+        resourceProvider(resource, cached?.value, source.pluginId, providers),
       );
-      for (const { source, resource } of visible) {
-        const key = keyOf(source.pluginId, resource.id);
-        const cached = measurements.get(key);
-        machine.providers.push(
-          resourceProvider(resource, cached?.value, source.pluginId, providers),
-        );
-        if (source.error !== null || failures.has(key))
-          machine.error = "Some usage could not be refreshed.";
-      }
+      if (source.error !== null || failures.has(key))
+        machine.error = "Some usage could not be refreshed.";
     }
     const providerOrder = new Map(
       providers.map((provider, index) => [provider.id, index]),

@@ -411,3 +411,21 @@ describe("provider declaration fields renamed in SDK 0.4.16", () => {
     );
   });
 });
+
+it("validates picker metadata without changing provider capabilities", () => {
+  const normalized = validatePluginProviderDeclaration(
+    declaration({ experimental_picker: { hidden: true, group: "Accounts" } }),
+  );
+  expect(normalized.experimental_picker).toEqual({
+    hidden: true,
+    group: "Accounts",
+  });
+  expect(normalized.capabilities).toEqual(
+    validatePluginProviderDeclaration(declaration()).capabilities,
+  );
+  expect(() =>
+    validatePluginProviderDeclaration(
+      declaration({ experimental_picker: { group: " " } }),
+    ),
+  ).toThrow("experimental_picker");
+});

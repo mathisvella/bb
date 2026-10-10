@@ -108,6 +108,12 @@ export type ProviderExtensionKinds = z.infer<
 >;
 
 export const providerInfoSchema = z.object({
+  experimental_picker: z
+    .object({
+      hidden: z.boolean().optional(),
+      group: z.string().min(1).optional(),
+    })
+    .optional(),
   id: z.string(),
   pluginId: z.string().min(1),
   displayName: z.string(),
