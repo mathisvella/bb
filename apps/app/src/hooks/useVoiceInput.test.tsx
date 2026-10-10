@@ -138,13 +138,13 @@ it.each([
   const revokeObjectURL = vi.fn();
   vi.stubGlobal("URL", { createObjectURL, revokeObjectURL });
   let downloadedName = "";
-  vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(
-    function (this: HTMLAnchorElement) {
-      downloadedName = this.download;
-      expect(this.href).toBe("blob:recording");
-      expect(this.isConnected).toBe(true);
-    },
-  );
+  vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (
+    this: HTMLAnchorElement,
+  ) {
+    downloadedName = this.download;
+    expect(this.href).toBe("blob:recording");
+    expect(this.isConnected).toBe(true);
+  });
   if (!options?.cancel) throw new Error("Missing download action");
   const button = render(
     <button onClick={options.cancel.onClick}>Download recording</button>,
@@ -202,5 +202,57 @@ it("does not offer a download after explicit cancellation", async () => {
   vi.advanceTimersByTime(1500);
   await act(async () => result.current.stop());
   expect(result.current.state).toBe("idle");
+  expect(appToast.error).not.toHaveBeenCalled();
+});
+
+it("stops waiting for a hung transcription and retries the same recording", async () => {
+  const transcribe = vi
+    .fn()
+    .mockImplementationOnce(() => new Promise<string>(() => {}))
+    .mockResolvedValueOnce("Recovered dictation");
+  const onTranscript = vi.fn();
+  const { result } = renderHook(() =>
+    useVoiceInput({ onTranscribe: transcribe, onTranscript }),
+  );
+  await act(() => result.current.start());
+  vi.advanceTimersByTime(1500);
+  act(() => result.current.stop());
+  expect(result.current.state).toBe("transcribing");
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(90_000);
+  });
+  expect(result.current.state).toBe("error");
+  expect(transcribe.mock.calls[0]?.[0].signal.aborted).toBe(true);
+  const options = vi.mocked(appToast.error).mock.calls[0]?.[1];
+  expect(options?.description).toContain("recording is saved");
+  if (!options?.action) throw new Error("Missing retry action");
+  const retryButton = render(
+    <button onClick={options.action.onClick}>Retry transcription</button>,
+  );
+  await act(async () => {
+    fireEvent.click(retryButton.getByRole("button"));
+  });
+  expect(transcribe.mock.calls[1]?.[0].file).toBe(
+    transcribe.mock.calls[0]?.[0].file,
+  );
+  expect(onTranscript).toHaveBeenCalledWith("Recovered dictation");
+  expect(result.current.state).toBe("idle");
+});
+
+it("cancels a hung transcription immediately without a later timeout error", async () => {
+  const { result } = renderHook(() =>
+    useVoiceInput({
+      onTranscribe: () => new Promise<string>(() => {}),
+      onTranscript: vi.fn(),
+    }),
+  );
+  await act(() => result.current.start());
+  vi.advanceTimersByTime(1500);
+  act(() => result.current.stop());
+  await act(async () => result.current.cancel());
+  expect(result.current.state).toBe("idle");
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(90_000);
+  });
   expect(appToast.error).not.toHaveBeenCalled();
 });

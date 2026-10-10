@@ -29,6 +29,7 @@ interface UseVoiceInputOptions {
 
 const MIN_RECORDING_DURATION_MS = 1_000;
 const CHUNK_TIMESLICE_MS = 250;
+const TRANSCRIPTION_TIMEOUT_MS = 90_000;
 
 const HTML_DOCUMENT_PATTERN = /<!doctype html|<html[\s>]/i;
 
@@ -348,15 +349,41 @@ export function useVoiceInput(options: UseVoiceInputOptions) {
         promptContextRef.current = undefined;
 
         const transcribe = async () => {
+          if (transcriptionAbortRef.current !== null) return;
           setState("transcribing");
           const abortController = new AbortController();
           transcriptionAbortRef.current = abortController;
-          try {
-            const transcript = await options.onTranscribe({
-              file: audioFile,
-              promptContext,
-              signal: abortController.signal,
+          let timedOut = false;
+          let timeoutId: ReturnType<typeof setTimeout> | undefined;
+          let rejectOnAbort: (() => void) | undefined;
+          const cancellation = new Promise<never>((_, reject) => {
+            rejectOnAbort = () =>
+              reject(new DOMException("Transcription cancelled", "AbortError"));
+            abortController.signal.addEventListener("abort", rejectOnAbort, {
+              once: true,
             });
+          });
+          const timeout = new Promise<never>((_, reject) => {
+            timeoutId = setTimeout(() => {
+              timedOut = true;
+              abortController.abort();
+              reject(
+                new Error(
+                  "Transcription timed out. Your recording is saved; retry or download it.",
+                ),
+              );
+            }, TRANSCRIPTION_TIMEOUT_MS);
+          });
+          try {
+            const transcript = await Promise.race([
+              options.onTranscribe({
+                file: audioFile,
+                promptContext,
+                signal: abortController.signal,
+              }),
+              timeout,
+              cancellation,
+            ]);
             if (abortController.signal.aborted) {
               return;
             }
@@ -368,15 +395,18 @@ export function useVoiceInput(options: UseVoiceInputOptions) {
             setState("idle");
           } catch (error) {
             if (
-              abortController.signal.aborted ||
-              (error instanceof DOMException && error.name === "AbortError")
+              !timedOut &&
+              (abortController.signal.aborted ||
+                (error instanceof DOMException && error.name === "AbortError"))
             ) {
               setState("idle");
               return;
             }
             setState("error");
             appToast.error("Voice input failed", {
-              description: resolveRecordingErrorMessage(error),
+              description: timedOut
+                ? "Transcription timed out. Your recording is saved; retry or download it."
+                : resolveRecordingErrorMessage(error),
               duration: Infinity,
               action: {
                 label: "Retry transcription",
@@ -390,6 +420,12 @@ export function useVoiceInput(options: UseVoiceInputOptions) {
               },
             });
           } finally {
+            clearTimeout(timeoutId);
+            if (rejectOnAbort)
+              abortController.signal.removeEventListener(
+                "abort",
+                rejectOnAbort,
+              );
             if (transcriptionAbortRef.current === abortController) {
               transcriptionAbortRef.current = null;
             }
