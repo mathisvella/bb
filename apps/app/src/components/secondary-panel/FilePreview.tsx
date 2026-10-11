@@ -1,6 +1,7 @@
 import { SourceLoadingSkeleton } from "@/components/code/code-loading-skeletons";
 import {
   type CSSProperties,
+  type ReactNode,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -146,6 +147,11 @@ interface CsvFilePreviewProps {
   onSelectionAddToChat?: (text: string) => void;
 }
 
+interface JsonFilePreviewProps {
+  file: FilePreviewFile;
+  onSelectionAddToChat?: (text: string) => void;
+}
+
 interface FilePreviewImageProps {
   url: string;
   alt: string;
@@ -182,15 +188,25 @@ interface CsvPreviewData {
 }
 
 type FilePreviewViewMode = "preview" | "source";
-export type TextFilePreviewKind = "csv" | "markdown";
-type FilePreviewToggleKind = "csv" | "html" | "markdown";
+export type TextFilePreviewKind = "csv" | "json" | "markdown";
+type FilePreviewToggleKind = "csv" | "html" | "json" | "markdown";
 type FilePreviewHeaderMode = "file" | "none";
 type IframeLoadState = "loading" | "loaded" | "error";
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue };
 
 const CSV_PREVIEW_MAX_COLUMNS = 100;
 const CSV_PREVIEW_MAX_ROWS = 500;
 const CSV_PREVIEW_ROW_HEIGHT_PX = 29;
 const CSV_PREVIEW_OVERSCAN_ROWS = 8;
+const JSON_PREVIEW_MAX_CHARACTERS = 200_000;
+const JSON_PREVIEW_MAX_NODES = 500;
+const JSON_PREVIEW_MAX_DEPTH = 8;
 
 const FILE_PREVIEW_WRAPPER_STYLE = {
   "--md-content-w": "100cqi",
@@ -242,6 +258,8 @@ function getToggleAriaLabel(kind: FilePreviewToggleKind): string {
       return "CSV view mode";
     case "html":
       return "HTML view mode";
+    case "json":
+      return "JSON view mode";
     case "markdown":
       return "Markdown view mode";
   }
@@ -253,6 +271,9 @@ function getFileContentsCopyLabel(kind: FilePreviewToggleKind | null): string {
   }
   if (kind === "markdown") {
     return "Copy markdown";
+  }
+  if (kind === "json") {
+    return "Copy JSON";
   }
   if (kind === "html") {
     return "Copy HTML source";
@@ -287,6 +308,7 @@ function getInitialFilePreviewViewMode({
   if (
     toggleKind === "csv" ||
     toggleKind === "html" ||
+    toggleKind === "json" ||
     toggleKind === "markdown"
   ) {
     return "preview";
@@ -580,6 +602,14 @@ function FilePreviewBody({
       <MarkdownFilePreview
         file={state.file}
         markdownLinkRouting={markdownLinkRouting}
+        onSelectionAddToChat={onSelectionAddToChat}
+      />
+    );
+  }
+  if (state.textPreviewKind === "json" && viewMode === "preview") {
+    return (
+      <JsonFilePreview
+        file={state.file}
         onSelectionAddToChat={onSelectionAddToChat}
       />
     );
@@ -905,6 +935,136 @@ function MarkdownFilePreview({
           content={file.contents}
           linkRouting={markdownLinkRouting}
         />
+      </div>
+    </SecondaryPanelSelectionActions>
+  );
+}
+
+function formatJsonKey(key: string): string {
+  const words = key
+    .replace(/([a-z\d])([A-Z])/g, "$1 $2")
+    .replace(/[_-]+/g, " ")
+    .trim();
+  return words.length === 0 ? key : words[0].toUpperCase() + words.slice(1);
+}
+
+function renderJsonValue(
+  value: JsonValue,
+  depth: number,
+  budget: { remaining: number },
+): ReactNode {
+  if (budget.remaining === 0) {
+    return (
+      <span className="text-muted-foreground">More values in Raw view</span>
+    );
+  }
+  budget.remaining -= 1;
+
+  if (value === null) {
+    return <span className="text-muted-foreground">None</span>;
+  }
+  if (typeof value === "boolean") {
+    return value ? "Yes" : "No";
+  }
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value);
+  }
+  if (depth >= JSON_PREVIEW_MAX_DEPTH) {
+    return (
+      <span className="text-muted-foreground">
+        {Array.isArray(value)
+          ? `${value.length} items in Raw view`
+          : `${Object.keys(value).length} fields in Raw view`}
+      </span>
+    );
+  }
+  if (Array.isArray(value)) {
+    if (value.length === 0) {
+      return <span className="text-muted-foreground">No items</span>;
+    }
+    const items: ReactNode[] = [];
+    for (
+      let index = 0;
+      index < value.length && budget.remaining > 0;
+      index += 1
+    ) {
+      items.push(
+        <li key={index} className="pl-1 break-words">
+          {renderJsonValue(value[index], depth + 1, budget)}
+        </li>,
+      );
+    }
+    if (items.length < value.length) {
+      items.push(
+        <li key="more" className="list-none text-muted-foreground">
+          {value.length - items.length} more items in Raw view
+        </li>,
+      );
+    }
+    return <ol className="list-decimal space-y-1 pl-5">{items}</ol>;
+  }
+
+  const entries = Object.entries(value);
+  if (entries.length === 0) {
+    return <span className="text-muted-foreground">No fields</span>;
+  }
+  const fields: ReactNode[] = [];
+  for (const [key, child] of entries) {
+    if (budget.remaining === 0) break;
+    fields.push(
+      <div key={key} className="border-b border-border py-2 last:border-0">
+        <dt className="font-medium text-foreground">{formatJsonKey(key)}</dt>
+        <dd className="mt-1 break-words text-muted-foreground">
+          {renderJsonValue(child, depth + 1, budget)}
+        </dd>
+      </div>,
+    );
+  }
+  if (fields.length < entries.length) {
+    fields.push(
+      <div key="more" className="py-2 text-muted-foreground">
+        {entries.length - fields.length} more fields in Raw view
+      </div>,
+    );
+  }
+  return (
+    <dl
+      className={depth === 0 ? "space-y-1" : "ml-2 border-l border-border pl-3"}
+    >
+      {fields}
+    </dl>
+  );
+}
+
+function JsonFilePreview({ file, onSelectionAddToChat }: JsonFilePreviewProps) {
+  const parsed = useMemo(() => {
+    if (file.contents.length > JSON_PREVIEW_MAX_CHARACTERS) {
+      return { kind: "unavailable" as const };
+    }
+    try {
+      return {
+        kind: "ready" as const,
+        value: JSON.parse(file.contents) as JsonValue,
+      };
+    } catch {
+      return { kind: "unavailable" as const };
+    }
+  }, [file.contents]);
+
+  if (parsed.kind === "unavailable") {
+    return (
+      <FilePreviewMessage message="JSON preview unavailable. Open Raw to view the file." />
+    );
+  }
+
+  return (
+    <SecondaryPanelSelectionActions onSelectionAddToChat={onSelectionAddToChat}>
+      <div className="flex-auto bg-background px-4 py-4 text-sm leading-6 text-foreground">
+        <div aria-label={`${file.name} JSON preview`}>
+          {renderJsonValue(parsed.value, 0, {
+            remaining: JSON_PREVIEW_MAX_NODES,
+          })}
+        </div>
       </div>
     </SecondaryPanelSelectionActions>
   );

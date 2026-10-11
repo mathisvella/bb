@@ -850,6 +850,61 @@ describe("FilePreview", () => {
     expect(screen.getByRole("cell", { name: "10" })).not.toBeNull();
   });
 
+  it("opens a JSON report as readable fields and keeps its raw source available", () => {
+    render(
+      <SecondaryPanelFilePreview
+        activePath="reports/verification-production.json"
+        filePreview={{
+          kind: "text",
+          content: JSON.stringify({
+            allPassed: true,
+            productionChecks: 39,
+            databaseChecks: ["Migration applied", "No fixtures remaining"],
+          }),
+          mimeType: "application/octet-stream",
+          name: "verification-production.json",
+          path: "reports/verification-production.json",
+          url: "/api/v1/preview/report",
+        }}
+        isLoading={false}
+      />,
+    );
+
+    expect(
+      screen.getByLabelText("verification-production.json JSON preview"),
+    ).not.toBeNull();
+    expect(screen.getByText("All Passed")).not.toBeNull();
+    expect(screen.getByText("Yes")).not.toBeNull();
+    expect(screen.getByText("39")).not.toBeNull();
+    expect(screen.getByText("Migration applied")).not.toBeNull();
+    expect(screen.queryByTestId("pierre-file")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Raw" }));
+    expect(screen.getByTestId("pierre-file")).not.toBeNull();
+  });
+
+  it("offers the raw source when a JSON file cannot be rendered", () => {
+    render(
+      <SecondaryPanelFilePreview
+        activePath="reports/broken.json"
+        filePreview={{
+          kind: "text",
+          content: "{broken",
+          mimeType: "application/json",
+          path: "reports/broken.json",
+          url: "/api/v1/preview/broken",
+        }}
+        isLoading={false}
+      />,
+    );
+
+    expect(
+      screen.getByText("JSON preview unavailable. Open Raw to view the file."),
+    ).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Raw" }));
+    expect(screen.getByTestId("pierre-file")).not.toBeNull();
+  });
+
   it("states the reason a file preview failed", () => {
     render(
       <SecondaryPanelFilePreview
