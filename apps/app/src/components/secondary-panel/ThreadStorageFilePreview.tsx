@@ -77,6 +77,14 @@ function getTextPreviewKind(
   if (isMarkdownFilePreview(filePreview)) {
     return "markdown";
   }
+  if (
+    filePreview.path.toLowerCase().endsWith(".json") ||
+    filePreview.name?.toLowerCase().endsWith(".json") ||
+    filePreview.mimeType === "application/json" ||
+    filePreview.mimeType.endsWith("+json")
+  ) {
+    return "json";
+  }
   return null;
 }
 
