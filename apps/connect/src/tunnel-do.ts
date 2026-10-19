@@ -25,6 +25,7 @@ export interface Env {
 
 const TUNNEL_TAG = "tunnel";
 const RESP_HEAD_TIMEOUT_MS = 30_000;
+const MESSAGE_SEND_RESP_HEAD_TIMEOUT_MS = 90_000;
 const PRESENCE_INTERVAL_MS = 50_000;
 
 const WS_READY_STATE_OPEN = 1;
@@ -303,6 +304,10 @@ export class TunnelDO {
   ): Promise<Response> {
     const streamId = this.nextStreamId++;
     const hasBody = request.body !== null;
+    const responseHeadTimeoutMs =
+      request.method === "POST" && /\/threads\/[^/]+\/send$/u.test(url.pathname)
+        ? MESSAGE_SEND_RESP_HEAD_TIMEOUT_MS
+        : RESP_HEAD_TIMEOUT_MS;
 
     const responsePromise = new Promise<Response>((resolve) => {
       const timeout = setTimeout(() => {
@@ -311,7 +316,7 @@ export class TunnelDO {
           504,
           "timed out waiting for the tunnel client",
         );
-      }, RESP_HEAD_TIMEOUT_MS);
+      }, responseHeadTimeoutMs);
       this.pendingHttp.set(streamId, {
         resolve,
         writer: null,
