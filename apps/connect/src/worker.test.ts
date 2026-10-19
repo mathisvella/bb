@@ -1655,6 +1655,43 @@ function openHttpStreamId(sent: Uint8Array[], index: number): number {
 }
 
 describe("TunnelDO response relay", () => {
+  it("waits beyond 30 seconds for a message send response", async () => {
+    vi.useFakeTimers();
+    try {
+      const sent: Uint8Array[] = [];
+      const state = mockDoState({ protocolVersion: 1 });
+      const dob = new TunnelDO(state.api, makeDoEnv());
+      await state.restore;
+      const tunnel = fakeTunnelSocket(captureSent(sent));
+      state.addSocket(tunnel, ["tunnel"]);
+
+      const pending = Promise.resolve(
+        dob.fetch(
+          new Request("https://do.internal/api/v1/threads/thr_1/send", {
+            method: "POST",
+            body: "{}",
+          }),
+        ),
+      );
+      const streamId = openHttpStreamId(sent, 0);
+      let settled = false;
+      void pending.then(() => {
+        settled = true;
+      });
+
+      await vi.advanceTimersByTimeAsync(35_000);
+      expect(settled).toBe(false);
+
+      dob.webSocketMessage(
+        tunnel,
+        frameBuffer({ type: "resp-head", streamId, status: 204, headers: [] }),
+      );
+      expect((await pending).status).toBe(204);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("closes the origin stream when the visitor cancels a response body", async () => {
     const sent: Uint8Array[] = [];
     const state = mockDoState({ protocolVersion: 1 });
