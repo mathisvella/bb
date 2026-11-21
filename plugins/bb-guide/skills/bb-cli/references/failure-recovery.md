@@ -18,6 +18,12 @@
   a busy thread or a plugin's dispatch hook. `--reason <text>` labels the queued
   row. The SDK equivalent is `sdk.threads.retry({ threadId, turnRequestId?,
 sendAt?, reason? })`.
+- After a host reconnects, bb schedules a retry for recent threads interrupted
+  by the host daemon restart. It spaces retries 30 seconds apart and stops after
+  three attempts per turn. Archived, deleted, manually stopped, and unrelated
+  failed threads are excluded. Use `bb thread queue list <id>` to inspect a
+  scheduled retry; use `bb thread retry <id>` if automatic recovery reached its
+  attempt limit.
 - For interrupted or stopped threads, inspect first. If the user stopped the
   thread, treat that as intentional unless they ask you to continue.
 - Use `bb thread stop <id>` when a thread is stuck or no longer needed.
