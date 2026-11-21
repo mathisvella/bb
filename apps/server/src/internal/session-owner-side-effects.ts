@@ -19,6 +19,7 @@ import {
   interruptActiveThreadsForHost,
   reconcileDaemonReportedThreads,
 } from "../services/threads/thread-lifecycle.js";
+import { queueHostInterruptedThreadResumes } from "../services/threads/thread-auto-resume.js";
 import { buildThreadStatusChangeMetadataByThreadId } from "../services/threads/thread-runtime-display.js";
 import { settleDanglingBackgroundTasks } from "../services/threads/background-task-reconciliation.js";
 import { interruptEnvironmentProvisioningForHost } from "../services/environments/environment-engine.js";
@@ -131,6 +132,7 @@ export async function handleHostSessionOpened(
     hostId: args.hostId,
     sameDaemonInstance,
   });
+  await queueHostInterruptedThreadResumes(deps, args.hostId);
 }
 
 export function handleDaemonSocketClosed(

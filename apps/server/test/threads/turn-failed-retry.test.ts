@@ -18,6 +18,7 @@ import { setPluginThreadEventEmitter } from "../../src/services/plugins/plugin-t
 import { applyLoggedThreadLifecycleEvent } from "../../src/services/threads/lifecycle-outcome.js";
 import { runQueuedMessageDispatch } from "../../src/services/threads/queued-message-dispatch.js";
 import { toThreadQueuedMessage } from "../../src/services/threads/thread-queued-messages.js";
+import { queueHostInterruptedThreadResumes } from "../../src/services/threads/thread-auto-resume.js";
 import { buildTurnFailedEvent } from "../../src/services/threads/turn-failed.js";
 import { retryFailedTurn } from "../../src/services/threads/turn-retry.js";
 import {
@@ -743,6 +744,42 @@ describe("retrying a failed turn", () => {
       await expect(retry(requestId)).rejects.toMatchObject({
         body: { code: "retry_already_queued" },
       });
+    });
+  });
+});
+
+
+describe("resuming interrupted threads after host reconnect", () => {
+  it("queues only the interrupted host turn once, after the reconnect", async () => {
+    await withTestHarness(async (harness) => {
+      const interrupted = seedFailableThread(harness, "host-auto-resume");
+      const otherHost = seedFailableThread(harness, "host-other-resume");
+      for (const fixture of [interrupted, otherHost]) {
+        seedEvent(harness.deps, {
+          threadId: fixture.thread.id,
+          environmentId: fixture.environment.id,
+          sequence:
+            getLatestThreadSequence(harness.db, { threadId: fixture.thread.id }) + 1,
+          type: "system/thread/interrupted",
+          scope: { kind: "thread" },
+          data: { reason: "host-daemon-restarted" },
+        });
+        failThread(harness, fixture.thread.id);
+      }
+
+      await queueHostInterruptedThreadResumes(harness.deps, interrupted.host.id);
+      await queueHostInterruptedThreadResumes(harness.deps, interrupted.host.id);
+
+      const queued = onlyQueuedRow(harness, interrupted.thread.id);
+      expect(queued.payload).toMatchObject({
+        kind: "retry",
+        retryOfTurnRequestId: interrupted.requestId,
+        attempt: 2,
+        reason: "Host restarted",
+      });
+      expect(queued.waitingOn).toEqual({ kind: "time" });
+      expect(queued.sendAt).toBeGreaterThan(Date.now());
+      expect(queuedRows(harness, otherHost.thread.id)).toEqual([]);
     });
   });
 });
